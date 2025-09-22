@@ -63,6 +63,7 @@ export default function Navbar() {
 
       // Clear session storage
       sessionStorage.removeItem("username");
+      sessionStorage.removeItem("userProfile");
 
       // Remove all cookies
       const allCookies = Cookies.get();

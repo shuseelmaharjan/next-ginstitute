@@ -5,6 +5,12 @@ import {
   Forward,
   MoreHorizontal,
   Trash2,
+  GraduationCap,
+  Users,
+  BookOpen,
+  Calendar,
+  BarChart3,
+  Settings,
   type LucideIcon,
 } from "lucide-react"
 
@@ -24,65 +30,87 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import Link from "next/link"
+
+// User interface for role-based access
+interface User {
+  name: string
+  email: string
+  avatar: string
+  role?: string
+}
+
+// Static projects data
+const projectsData = [
+  {
+    name: "Course Management",
+    url: "/projects/course-management",
+    icon: GraduationCap,
+    roles: ["superadmin", "faculty"]
+  },
+  {
+    name: "Student Portal",
+    url: "/projects/student-portal",
+    icon: Users,
+    roles: ["superadmin", "faculty", "student"]
+  },
+  {
+    name: "Academic Calendar",
+    url: "/projects/academic-calendar",
+    icon: Calendar,
+    roles: ["superadmin", "faculty"]
+  },
+  {
+    name: "Learning Resources",
+    url: "/projects/learning-resources",
+    icon: BookOpen,
+    roles: ["superadmin", "faculty", "student"]
+  },
+  {
+    name: "Analytics Dashboard",
+    url: "/projects/analytics",
+    icon: BarChart3,
+    roles: ["superadmin"]
+  },
+  {
+    name: "System Settings",
+    url: "/projects/system-settings",
+    icon: Settings,
+    roles: ["superadmin"]
+  },
+];
+
+// Filter projects based on user role
+const getFilteredProjects = (userRole?: string) => {
+  if (!userRole) userRole = "student"; // Default to student if no role
+  
+  return projectsData.filter(project => 
+    project.roles.includes(userRole!)
+  );
+};
 
 export function NavProjects({
-  projects,
+  user,
 }: {
-  projects: {
-    name: string
-    url: string
-    icon: LucideIcon
-  }[]
+  user: User
 }) {
   const { isMobile } = useSidebar()
+  const filteredProjects = getFilteredProjects(user.role);
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Projects</SidebarGroupLabel>
       <SidebarMenu>
-        {projects.map((item) => (
+        {filteredProjects.map((item) => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild>
-              <a href={item.url}>
+              <Link href={item.url}>
                 <item.icon />
                 <span>{item.name}</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuAction showOnHover>
-                  <MoreHorizontal />
-                  <span className="sr-only">More</span>
-                </SidebarMenuAction>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-48 rounded-lg"
-                side={isMobile ? "bottom" : "right"}
-                align={isMobile ? "end" : "start"}
-              >
-                <DropdownMenuItem>
-                  <Folder className="text-muted-foreground" />
-                  <span>View Project</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Forward className="text-muted-foreground" />
-                  <span>Share Project</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Trash2 className="text-muted-foreground" />
-                  <span>Delete Project</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </SidebarMenuItem>
         ))}
-        <SidebarMenuItem>
-          <SidebarMenuButton className="text-sidebar-foreground/70">
-            <MoreHorizontal className="text-sidebar-foreground/70" />
-            <span>More</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
   )

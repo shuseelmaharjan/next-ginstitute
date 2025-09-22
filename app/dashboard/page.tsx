@@ -13,9 +13,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import PrivateRoute from "../context/PrivateRoute"
 
 export default function Page() {
   return (
+    <PrivateRoute>
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
@@ -48,5 +50,6 @@ export default function Page() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </PrivateRoute>
   )
 }

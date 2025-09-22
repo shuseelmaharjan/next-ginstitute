@@ -156,7 +156,7 @@ export default function LoginPage() {
                                 onMouseEnter={() => setIsHovered(true)}
                                 onMouseLeave={() => setIsHovered(false)}
                             >
-                                <span className="relative z-10">Login to Account</span>
+                                <span className="relative z-10">Login</span>
                                 {isHovered && (
                                     <motion.div
                                         className="absolute inset-0 bg-white opacity-20"
@@ -179,7 +179,7 @@ export default function LoginPage() {
                     <div className="text-center text-sm text-gray-500 pt-4">
                         Back to{" "}
                         <Link href="/" className="text-primary-color hover:underline font-semibold">
-                            Login
+                            Homepage
                         </Link>
                     </div>
                 </div>
