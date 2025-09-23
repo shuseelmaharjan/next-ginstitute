@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../../components/ui/table";
+import { formatDate } from "@/app/utils/textUtils";
 
 interface DepartmentListProps {
   departments: Department[];
@@ -70,30 +71,23 @@ export function DepartmentList({
                   <span className="font-medium">
                     {department.faculty?.facultyName || `Faculty ID: ${department.facultyId}`}
                   </span>
-                  {department.faculty && (
-                    <Badge
-                      variant={department.faculty.isActive ? "default" : "secondary"}
-                      className="w-fit text-xs mt-1"
-                    >
-                      {department.faculty.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  )}
+
                 </div>
               </TableCell>
               <TableCell>
                 <Badge
                   variant={department.isActive ? "default" : "secondary"}
-                  className="w-fit"
+                  className={
+                    department.isActive
+                      ? "w-fit bg-green-100 text-green-800 hover:bg-green-200"
+                      : "w-fit bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }
                 >
                   {department.isActive ? "Active" : "Inactive"}
                 </Badge>
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {new Date(department.createdAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
+                {formatDate(department.createdAt)}
               </TableCell>
               <TableCell className="text-right">
                 <DropdownMenu>
@@ -112,14 +106,14 @@ export function DepartmentList({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => onEdit(department)}
-                      className="cursor-pointer"
+                      className="cursor-pointer whitespace-nowrap cursor-pointer select-none"
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Name
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(department.id, department.isActive)}
-                      className="cursor-pointer"
+                      className="cursor-pointer whitespace-nowrap select-none"
                     >
                       {department.isActive ? (
                         <>

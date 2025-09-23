@@ -60,13 +60,14 @@ const SelectValue = React.forwardRef<
   HTMLSpanElement,
   React.HTMLAttributes<HTMLSpanElement> & {
     placeholder?: string;
+    children?: React.ReactNode;
   }
->(({ className, placeholder, ...props }, ref) => {
+>(({ className, placeholder, children, ...props }, ref) => {
   const { value } = useSelectContext();
   
   return (
     <span ref={ref} className={className} {...props}>
-      {value || placeholder}
+      {children || value || placeholder}
     </span>
   );
 });

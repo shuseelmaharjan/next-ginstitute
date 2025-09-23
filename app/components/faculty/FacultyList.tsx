@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Edit, Power, PowerOff } from "lucide-react";
 import { Faculty } from "@/app/services/facultyService";
+import { formatCreatedUpdatedDates, formatDate } from "@/app/utils/textUtils";
 
 interface FacultyListProps {
   faculties: Faculty[];
@@ -38,16 +39,16 @@ export function FacultyList({
                   variant={faculty.isActive ? "default" : "secondary"}
                   className={
                     faculty.isActive
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-600"
+                      ? "bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer"
                   }
                 >
                   {faculty.isActive ? "Active" : "Inactive"}
                 </Badge>
               </div>
+
               <p className="text-sm text-muted-foreground mt-1">
-                Created: {new Date(faculty.createdAt).toLocaleDateString()} •
-                Updated: {new Date(faculty.updatedAt).toLocaleDateString()}
+                {formatCreatedUpdatedDates(faculty.createdAt, faculty.updatedAt)}
               </p>
             </div>
             <div className="flex gap-2">
@@ -56,6 +57,7 @@ export function FacultyList({
                 size="sm"
                 onClick={() => onEdit(faculty)}
                 disabled={isLoading}
+                className="cursor-pointer select-none"
               >
                 <Edit className="h-4 w-4 mr-1" />
                 Edit
@@ -67,9 +69,10 @@ export function FacultyList({
                 disabled={isLoading}
                 className={
                   faculty.isActive
-                    ? "hover:bg-red-50 hover:border-red-200 hover:text-red-600"
-                    : "hover:bg-green-50 hover:border-green-200 hover:text-green-600"
+                    ? "hover:bg-red-50 hover:border-red-200 hover:text-red-600 cursor-pointer select-none"
+                    : "hover:bg-green-50 hover:border-green-200 hover:text-green-600 cursor-pointer select-none"
                 }
+
               >
                 {faculty.isActive ? (
                   <>

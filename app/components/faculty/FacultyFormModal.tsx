@@ -120,10 +120,11 @@ export function FacultyFormModal({
               variant="outline"
               onClick={handleClose}
               disabled={isLoading}
+              className="cursor-pointer select-none"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="cursor-pointer select-none">
               {isLoading
                 ? isEdit
                   ? "Updating..."

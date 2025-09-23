@@ -77,6 +77,18 @@ export function DepartmentFormModal({
     }
   }, [open, department]);
 
+  // Debug effect to check values
+  useEffect(() => {
+    if (facultyId && faculties.length > 0) {
+      const selectedFaculty = faculties.find(f => f.id.toString() === facultyId);
+      console.log("Selected faculty:", {
+        facultyId,
+        selectedFaculty: selectedFaculty?.facultyName,
+        allFaculties: faculties.map(f => ({ id: f.id, name: f.facultyName }))
+      });
+    }
+  }, [facultyId, faculties]);
+
   const validateForm = (): boolean => {
     const newErrors: { departmentName?: string; facultyId?: string } = {};
 
@@ -104,6 +116,8 @@ export function DepartmentFormModal({
     }
 
     try {
+      faculties.find(f => f.id.toString() === facultyId);
+
       await onSubmit(parseInt(facultyId), departmentName.trim());
       setDepartmentName("");
       setFacultyId("");
@@ -146,9 +160,13 @@ export function DepartmentFormModal({
                   disabled={facultiesLoading || isLoading}
                 >
                   <SelectTrigger id="faculty">
-                    <SelectValue 
-                      placeholder={facultiesLoading ? "Loading faculties..." : "Select faculty"} 
-                    />
+                    <SelectValue
+                      placeholder={facultiesLoading ? "Loading faculties..." : "Select faculty"}
+                    >
+                      {facultyId && faculties.length > 0
+                        ? faculties.find(f => f.id.toString() === facultyId)?.facultyName || facultyId
+                        : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {faculties.map((faculty) => (

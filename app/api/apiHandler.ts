@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from "axios";
 import config from "./../config";
+import Cookies from 'js-cookie';
 
 const apiURL = config.BASE_URL;
 
@@ -13,6 +14,16 @@ export interface ApiHandlerParams {
     onWarning?: (message: string) => void;
     onError?: (message: string) => void;
 }
+
+// Function to handle logout when session is revoked
+const handleSessionRevoked = () => {
+    // Clear all authentication cookies
+    Cookies.remove('accessToken');
+    Cookies.remove('refreshToken');
+    
+    // Redirect to login page
+    window.location.href = '/login';
+};
 
 export default async function apiHandler<T = any>({
     data,
@@ -44,6 +55,17 @@ export default async function apiHandler<T = any>({
             if (error.response) {
                 const errorMessage =
                     (error.response.data as any)?.message || "Error response from server";
+
+                // Handle session revocation (401 errors with specific messages)
+                if (error.response.status === 401) {
+                    const message = errorMessage.toLowerCase();
+                    if (message.includes('session has been revoked') || 
+                        message.includes('session not found') || 
+                        message.includes('invalid or expired access token')) {
+                        handleSessionRevoked();
+                        return Promise.reject(new Error('Session revoked. Redirecting to login...'));
+                    }
+                }
 
                 onWarning?.(errorMessage);
                 onError?.(errorMessage);

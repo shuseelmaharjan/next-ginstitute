@@ -320,7 +320,7 @@ export default function FacultyPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Faculties</h3>
-            <Button onClick={handleAddNew} disabled={isLoading}>
+            <Button onClick={handleAddNew} disabled={isLoading} className="whitespace-nowrap cursor-pointer select-none">
               <Plus className="h-4 w-4 mr-2" />
               Add Faculty
             </Button>
@@ -394,7 +394,7 @@ export default function FacultyPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Departments</h3>
-            <Button onClick={handleAddNewDepartment} disabled={isDepartmentLoading}>
+            <Button onClick={handleAddNewDepartment} disabled={isDepartmentLoading} className="whitespace-nowrap cursor-pointer select-none">
               <Plus className="h-4 w-4 mr-2" />
               Add Department
             </Button>

@@ -99,7 +99,7 @@ class DepartmentService {
     if (!accessToken) throw new Error("Access token not found");
 
     const response = await apiHandler<DepartmentResponse>({
-      url: `/api/v1/update-department-name/${id}`,
+      url: `/api/v1/department/${id}/update`,
       method: "PUT",
       accessToken,
       data: { departmentName },
