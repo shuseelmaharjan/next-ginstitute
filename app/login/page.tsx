@@ -37,7 +37,7 @@ export default function LoginPage() {
             });
 
             const encryptData = (data: string) => {
-                return btoa(data); 
+                return btoa(data);
             }
 
             if (res.success) {
@@ -54,6 +54,7 @@ export default function LoginPage() {
                     localStorage.setItem("accessToken", res.data.accessToken);
                 }
                 router.push("/");
+                
             } else {
                 setErrorMsg(res.message || "Login failed");
             }

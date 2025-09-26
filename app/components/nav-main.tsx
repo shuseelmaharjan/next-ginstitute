@@ -1,12 +1,7 @@
 "use client"
 
-import { ChevronRight, SquareTerminal, Bot, BookOpen, Settings2, type LucideIcon } from "lucide-react"
-
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+// Updated icons: LayoutDashboard for Dashboard, Users for Users, GraduationCap for Classes
+import { LayoutDashboard, Users, GraduationCap, ChevronRight } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -14,9 +9,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
-  SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 import Link from "next/link"
 
 // User interface for role-based access
@@ -27,89 +23,44 @@ interface User {
   role?: string
 }
 
-// Navigation item interfaces for better type safety
-interface NavigationSubItem {
-  title: string
-  url: string
-}
-interface NavigationItem {
-  title: string
-  url: string
-  icon: LucideIcon
-  isActive?: boolean
-  items?: NavigationSubItem[]
-}
-
-// Static navigation data
+// Minimal single-item nav
+interface NavigationSubItem { title: string; url: string }
+interface NavigationItem { title: string; url: string; icon: any; items?: NavigationSubItem[]; defaultOpen?: boolean }
 const navigationItems: NavigationItem[] = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: SquareTerminal,
-    isActive: true,
+    title: "Users",
+    url: "/users",
+    icon: Users,
+    defaultOpen: false,
     items: [
-      { title: "Overview", url: "/dashboard/overview" },
-      { title: "Analytics", url: "/dashboard/analytics" },
-      { title: "Reports", url: "/dashboard/reports" },
+      { title: "All Students", url: "/users/students" },
+      { title: "New Admission", url: "/users/admissions/new" },
+      { title: "All Teachers", url: "/users/teachers" },
+      { title: "Add Teacher", url: "/users/teachers/add" },
+      { title: "All Staff", url: "/users/staff" },
+      { title: "Add Staff", url: "/users/staff/add" },
     ],
   },
   {
-    title: "Courses",
-    url: "/courses",
-    icon: Bot,
+    title: "Classes",
+    url: "/classes",
+    icon: GraduationCap,
+    defaultOpen: false,
     items: [
-      { title: "All Courses", url: "/courses/all" },
-      { title: "My Courses", url: "/courses/my-courses" },
-      { title: "Categories", url: "/courses/categories" },
+      { title: "All Classes", url: "/classes/all" },
+      { title: "Add Class", url: "/classes/add" },
     ],
-  },
-  {
-    title: "Students",
-    url: "/students",
-    icon: BookOpen,
-    items: [
-      { title: "All Students", url: "/students/all" },
-      { title: "Enrollments", url: "/students/enrollments" },
-      { title: "Performance", url: "/students/performance" },
-    ],
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings2,
-    items: [
-      { title: "General", url: "/settings/general" },
-      { title: "Profile", url: "/settings/profile" },
-      { title: "Security", url: "/settings/security" },
-    ],
-  },
+  }
 ];
 
-// Filter navigation items based on user role
-const getFilteredNavItems = (userRole?: string): NavigationItem[] => {
-  if (userRole === "admin") {
-    return navigationItems; // Admin sees all
-  } else if (userRole === "faculty") {
-    return navigationItems.filter(item =>
-      ["Dashboard", "Courses", "Students"].includes(item.title)
-    );
-  } else {
-    return navigationItems.filter(item =>
-      ["Dashboard", "Courses"].includes(item.title)
-    );
-  }
-};
-
 export function NavMain({ user }: { user: User }) {
-  const filteredItems = getFilteredNavItems(user.role);
-
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="select-none">Main</SidebarGroupLabel>
       <SidebarMenu>
-        {filteredItems.map((item) => {
-          // Special handling for Dashboard - render as direct link without collapsible
-          if (item.title === "Dashboard") {
+        {navigationItems.map(item => {
+          if (!item.items) {
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild tooltip={item.title}>
@@ -119,17 +70,10 @@ export function NavMain({ user }: { user: User }) {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            );
+            )
           }
-
-          // Render other items as collapsible
           return (
-            <Collapsible
-              key={item.title}
-              asChild
-              defaultOpen={item.isActive}
-              className="group/collapsible"
-            >
+            <Collapsible key={item.title} asChild defaultOpen={item.defaultOpen} className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
                   <SidebarMenuButton tooltip={item.title}>
@@ -141,12 +85,12 @@ export function NavMain({ user }: { user: User }) {
                 {item.items && item.items.length > 0 && (
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {item.items.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.title}>
+                      {item.items.map(sub => (
+                        <SidebarMenuSubItem key={sub.title}>
                           <SidebarMenuSubButton asChild>
-                            <a href={subItem.url}>
-                              <span>{subItem.title}</span>
-                            </a>
+                            <Link href={sub.url}>
+                              <span>{sub.title}</span>
+                            </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
@@ -155,7 +99,7 @@ export function NavMain({ user }: { user: User }) {
                 )}
               </SidebarMenuItem>
             </Collapsible>
-          );
+          )
         })}
       </SidebarMenu>
     </SidebarGroup>

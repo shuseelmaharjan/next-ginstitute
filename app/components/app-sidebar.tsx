@@ -3,7 +3,6 @@
 import * as React from "react"
 import { useState, useEffect, memo, useMemo } from "react"
 import { NavMain } from "./nav-main"
-import { NavProjects } from "./nav-projects"
 import { NavUser } from "./nav-user"
 import { NavOthers } from "./nav-others"
 import { TeamSwitcher } from "./team-switcher"
@@ -16,6 +15,9 @@ import {
 } from "@/components/ui/sidebar"
 import { useAuthenticate } from "../context/AuthenticateContext"
 import Cookies from "js-cookie"
+import NavCourses from "./nav-courses"
+import NavSite from "./nav-site"
+import NavBilling from "./nav-billing"
 
 // Function to generate initials from name
 const generateInitials = (name: string): string => {
@@ -106,7 +108,9 @@ export const AppSidebar = memo(function AppSidebar({ ...props }: React.Component
       </SidebarHeader>
       <SidebarContent>
         <NavMain user={userData}/>
-        <NavProjects user={userData}/>
+        <NavCourses user={userData}/>
+        <NavSite user={userData}/>
+        <NavBilling user={userData}/>
         <NavOthers user={userData}/>
       </SidebarContent>
       <SidebarFooter>
@@ -119,7 +123,7 @@ export const AppSidebar = memo(function AppSidebar({ ...props }: React.Component
             <div className="text-sm text-red-500">Error: {error}</div>
           </div>
         ) : (
-          <NavUser user={userData} />
+          <NavUser />
         )}
       </SidebarFooter>
       <SidebarRail />
