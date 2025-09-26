@@ -2,14 +2,14 @@
 
 import { useEffect, memo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccessToken } from "./AccessTokenContext";
+import { useAuthenticate } from "./AuthenticateContext";
 
 type Props = {
   children: React.ReactNode;
 };
 
 const PrivateRoute = memo(function PrivateRoute({ children }: Props) {
-  const { isAuthenticated, loading } = useAccessToken();
+  const { isAuthenticated, loading } = useAuthenticate();
   const router = useRouter();
   const [hasSessionCookie, setHasSessionCookie] = useState<boolean | null>(null);
 

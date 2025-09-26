@@ -131,3 +131,19 @@
 .text-primary-color{
   color: #0962c6;
 }
+
+/* Hide native date input indicators; we'll use a custom icon overlay */
+.hide-native-date::-webkit-calendar-picker-indicator,
+.hide-native-date::-webkit-clear-button,
+.hide-native-date::-ms-expand {
+  display: none !important;
+}
+.hide-native-date::-webkit-inner-spin-button,
+.hide-native-date::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  display: none;
+}
+.hide-native-date {
+  position: relative;
+  background-image: none !important;
+}

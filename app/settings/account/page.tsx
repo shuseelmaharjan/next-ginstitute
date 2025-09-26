@@ -9,7 +9,6 @@ import { Shield, Key, Smartphone, AlertTriangle, Loader2, Trash2 } from "lucide-
 import { SessionInfo } from "@/app/services/accountService";
 import AccountService from "@/app/services/accountService"; // adjust export to default (will modify service file next if needed)
 import SessionService from "../../services/sessionService"; // use relative path to avoid alias resolution issue
-import { useAccessToken } from "@/app/context/AccessTokenContext";
 import { toast } from "@/components/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import Cookies from "js-cookie";
@@ -26,9 +25,9 @@ import {
 } from "@/components/ui/dialog";
 
 const AccountPage = function AccountPage() {
-  const { getAccessToken } = useAccessToken();
-  const accountService = React.useMemo(() => new AccountService(), [getAccessToken]);
-  const sessionService = React.useMemo(() => new SessionService(getAccessToken), [getAccessToken]);
+  // Token retrieval handled inside apiHandler now; context only for user/auth state
+  const accountService = React.useMemo(() => new AccountService(), []);
+  const sessionService = React.useMemo(() => new SessionService(), []);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

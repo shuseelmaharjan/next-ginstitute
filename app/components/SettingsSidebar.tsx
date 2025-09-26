@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { memo, useMemo } from "react";
+import Cookies from "js-cookie";
 
 interface SettingsNavItem {
   title: string;
@@ -21,7 +22,7 @@ interface SettingsNavItem {
   description: string;
 }
 
-const settingsNavItems: SettingsNavItem[] = [
+const allNavItems: SettingsNavItem[] = [
   {
     title: "Profile",
     href: "/settings/profile",
@@ -48,12 +49,41 @@ const settingsNavItems: SettingsNavItem[] = [
   },
 ];
 
+// settingsNavItems will be determined inside the component after role is set
+
 interface SettingsSidebarProps {
   className?: string;
 }
 
 export const SettingsSidebar = memo(function SettingsSidebar({ className }: SettingsSidebarProps) {
   const pathname = usePathname();
+
+  //get user role from cookies
+  const getRole = Cookies.get('_ud');
+
+  let role: string | undefined;
+
+  const decryptData = (data: string) => {
+    try{
+      return JSON.parse(atob(data));
+    }catch(e){
+      console.error("Failed to decrypt data", e);
+      return null;
+    }
+  };
+
+  if(getRole){
+    const userData = decryptData(getRole);
+    role = userData?.role;
+  }
+
+  // Determine settingsNavItems based on role
+  const settingsNavItems: SettingsNavItem[] = 
+    (role === "superadmin" || role === "admin")
+      ? allNavItems
+      : allNavItems.filter(item => 
+          item.title === "Profile" || item.title === "Account"
+        );
 
   // Memoize the sidebar content to prevent recreation
   const SidebarContent = useMemo(() => () => (
@@ -107,7 +137,7 @@ export const SettingsSidebar = memo(function SettingsSidebar({ className }: Sett
         </div>
       </div>
     </div>
-  ), [pathname]);
+  ), [pathname, settingsNavItems]);
 
   return (
     <>

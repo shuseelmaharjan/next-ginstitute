@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useAccessToken } from '../context/AccessTokenContext';
+import { useAuthenticate } from '../context/AuthenticateContext';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -8,7 +7,7 @@ interface AuthState {
 }
 
 export function useAuth(): AuthState {
-  const { isAuthenticated, user, loading } = useAccessToken();
+  const { isAuthenticated, user, loading } = useAuthenticate();
   return {
     isAuthenticated,
     username: user?.username || null,

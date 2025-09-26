@@ -14,7 +14,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { useAccessToken } from "../context/AccessTokenContext"
+import { useAuthenticate } from "../context/AuthenticateContext"
 import Cookies from "js-cookie"
 
 // Function to generate initials from name
@@ -36,7 +36,7 @@ const generateInitials = (name: string): string => {
 };
 
 export const AppSidebar = memo(function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, loading, error } = useAccessToken();
+  const { user, loading, error } = useAuthenticate();
 
   const encryptedData = Cookies.get("_ud");
 

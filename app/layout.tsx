@@ -1,5 +1,5 @@
 import NavbarWrapper from "./components/NavbarWrapper";
-import { AccessTokenProvider } from "./context/AccessTokenContext";
+import { AuthenticateProvider } from "./context/AuthenticateContext";
 import "./globals.css";
 import type { Metadata } from "next";
 
@@ -19,10 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AccessTokenProvider>
-        <NavbarWrapper/>
-        <main>{children}</main>
-        </AccessTokenProvider>
+        <AuthenticateProvider>
+          <NavbarWrapper />
+          <main>{children}</main>
+        </AuthenticateProvider>
       </body>
     </html>
   );

@@ -2,25 +2,24 @@
 
 import { Settings, User, Shield, Key } from "lucide-react";
 import { memo, useMemo } from "react";
-
-// Helper to safely parse user profile from sessionStorage
-function getUserRole(): string | undefined {
-  if (typeof window !== "undefined") {
-    try {
-      const userProfile = sessionStorage.getItem('userProfile');
-      if (userProfile) {
-        const profileObj = JSON.parse(userProfile);
-        return profileObj.role;
-      }
-    } catch (err) {
-      console.error("Failed to parse userProfile from sessionStorage:", err);
-    }
-  }
-  return undefined;
-}
+import Cookies from "js-cookie";
 
 const SettingsPage = memo(function SettingsPage() {
-  const role = getUserRole();
+  const getRole = Cookies.get('_ud');
+  let role: string | undefined;
+
+  const decryptData = (data: string) => {
+    try {
+      return JSON.parse(atob(data));
+    } catch (e) {
+      console.error("Failed to decrypt data", e);
+      return null;
+    }
+  };
+  if (getRole) {
+    const userData = decryptData(getRole);
+    role = userData?.role;
+  }
 
   // Memoize the role check to prevent recalculation on every render
   const isFacultyAdmin = useMemo(() => 

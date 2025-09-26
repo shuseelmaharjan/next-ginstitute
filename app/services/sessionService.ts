@@ -19,11 +19,8 @@ export interface ApiResponse<T = any> {
 }
 
 export class SessionService {
-  private getAccessToken: () => Promise<string | null>;
-
-  constructor(getAccessToken: () => Promise<string | null>) {
-    this.getAccessToken = getAccessToken;
-  }
+  // No longer need getAccessToken; apiHandler handles token retrieval/refresh
+  constructor() {}
 
   async getActiveSessions(): Promise<ApiResponse<SessionInfo[]>> {
     return apiHandler({

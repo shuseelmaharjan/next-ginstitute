@@ -34,7 +34,7 @@ import {
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import apiHandler from "../api/apiHandler";
-import { useAccessToken } from "../context/AccessTokenContext";
+import { useAuthenticate } from "../context/AuthenticateContext";
 
 type NavLink = {
   href: string;
@@ -53,7 +53,7 @@ const NAV_LINKS: NavLink[] = [
 
 function Navbar() {
   // Use the hook inside the component!
-  const { isAuthenticated, loading: isLoading, clearAuth } = useAccessToken();
+  const { isAuthenticated, loading: isLoading, clearAuth } = useAuthenticate();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
