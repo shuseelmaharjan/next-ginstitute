@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ export function DepartmentFormModal({
   const [facultyId, setFacultyId] = useState<string>("");
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [facultiesLoading, setFacultiesLoading] = useState(false);
+  // Using shared facultyService instance; token injection handled by apiHandler
   const [errors, setErrors] = useState<{ departmentName?: string; facultyId?: string }>({});
 
   const isEditing = !!department;
@@ -49,7 +50,7 @@ export function DepartmentFormModal({
       setFacultiesLoading(true);
       try {
         const data = await facultyService.getAllFaculties();
-        // Only show active faculties for selection
+        // Only show active faculties for selection (keeping original behavior)
         setFaculties(data.filter(f => f.isActive));
       } catch (error) {
         console.error("Failed to load faculties:", error);
@@ -215,12 +216,14 @@ export function DepartmentFormModal({
               variant="outline"
               onClick={handleCancel}
               disabled={isLoading}
+              className="cursor-pointer select-none"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isLoading || facultiesLoading}
+              className="cursor-pointer select-none"
             >
               {isLoading ? (
                 <>

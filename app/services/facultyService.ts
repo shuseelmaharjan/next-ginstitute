@@ -23,13 +23,9 @@ class FacultyService {
   }
 
   async getAllFaculties(): Promise<Faculty[]> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<FacultyResponse>({
       url: "/api/v1/faculty",
       method: "GET",
-      accessToken,
     });
 
     if (response.success) {
@@ -39,13 +35,9 @@ class FacultyService {
   }
 
   async getFacultyById(id: number): Promise<Faculty> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<FacultyResponse>({
       url: `/api/v1/faculty/${id}`,
       method: "GET",
-      accessToken,
     });
 
     if (response.success && !Array.isArray(response.data)) {
@@ -55,14 +47,10 @@ class FacultyService {
   }
 
   async createFaculty(facultyName: string): Promise<Faculty> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<FacultyResponse>({
       url: "/api/v1/faculty",
       method: "POST",
       data: { facultyName },
-      accessToken,
     });
 
     if (response.success && !Array.isArray(response.data)) {
@@ -72,14 +60,10 @@ class FacultyService {
   }
 
   async updateFacultyName(id: number, facultyName: string): Promise<Faculty> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<FacultyResponse>({
       url: `/api/v1/faculty/${id}/name`,
       method: "PUT",
       data: { facultyName },
-      accessToken,
     });
 
     if (response.success && !Array.isArray(response.data)) {
@@ -89,14 +73,10 @@ class FacultyService {
   }
 
   async updateFacultyStatus(id: number, isActive: boolean): Promise<Faculty> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<FacultyResponse>({
       url: `/api/v1/faculty/${id}/status`,
       method: "PUT",
       data: { isActive },
-      accessToken,
     });
 
     if (response.success && !Array.isArray(response.data)) {

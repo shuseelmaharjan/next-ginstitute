@@ -1,16 +1,34 @@
 "use client";
 
-import { useState, memo, useEffect } from "react";
+import React, { useState, memo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Shield, Key, Smartphone, AlertTriangle, Loader2 } from "lucide-react";
-import { accountService, SessionInfo } from "@/app/api/accountApi";
+import { Shield, Key, Smartphone, AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { SessionInfo } from "@/app/services/accountService";
+import AccountService from "@/app/services/accountService"; // adjust export to default (will modify service file next if needed)
+import SessionService from "../../services/sessionService"; // use relative path to avoid alias resolution issue
+import { useAccessToken } from "@/app/context/AccessTokenContext";
 import { toast } from "@/components/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
+import Cookies from "js-cookie";
+import { decrypt } from "@/app/utils/crypto";
+import apiHandler from "@/app/api/apiHandler";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const AccountPage = memo(function AccountPage() {
+const AccountPage = function AccountPage() {
+  const { getAccessToken } = useAccessToken();
+  const accountService = React.useMemo(() => new AccountService(), [getAccessToken]);
+  const sessionService = React.useMemo(() => new SessionService(getAccessToken), [getAccessToken]);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,7 +40,93 @@ const AccountPage = memo(function AccountPage() {
     loadingSessions: false,
     revokeSession: false,
     revokeAllSessions: false,
+    deleteAccount: false,
   });
+
+  const router = useRouter();
+
+  // Delete account modal state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmUsernameInput, setConfirmUsernameInput] = useState("");
+  const [storedUsername, setStoredUsername] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (deleteOpen) {
+      try {
+        const enc = Cookies.get("_ud");
+        if (enc) {
+          const parsed = JSON.parse(atob(enc)); // legacy simple base64 fallback
+          // If encrypted with AES helper in future, attempt decrypt
+          if (parsed?.username) {
+            setStoredUsername(parsed.username);
+          } else {
+            // attempt decrypt if encoded differently
+            try {
+              const maybe = decrypt(enc);
+              const obj = JSON.parse(maybe);
+              setStoredUsername(obj.username || null);
+            } catch {
+              setStoredUsername(null);
+            }
+          }
+        }
+      } catch {
+        setStoredUsername(null);
+      }
+    } else {
+      setConfirmUsernameInput("");
+      setDeleteError(null);
+    }
+  }, [deleteOpen]);
+
+  const clearAllAuth = () => {
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+        localStorage.clear();
+      }
+      // Remove all cookies (limited to known ones)
+      ["accessToken", "refreshToken", "session", "_ud"].forEach(c => Cookies.remove(c));
+    } catch (e) {
+      console.warn("Error clearing auth state", e);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError(null);
+    if (!storedUsername) {
+      setDeleteError("Unable to resolve current username. Try reloading page.");
+      return;
+    }
+    if (confirmUsernameInput.trim() !== storedUsername) {
+      setDeleteError("Username does not match.");
+      return;
+    }
+    try {
+      setLoading(prev => ({ ...prev, deleteAccount: true }));
+      const response = await apiHandler<{ success: boolean; message: string }>({
+        url: "/api/v1/deactivate-account",
+        method: "PUT",
+        data: {},
+      });
+      if ((response as any).success) {
+        toast({
+          title: "Account Deactivated",
+          description: (response as any).message || "Your account has been deactivated.",
+          variant: "success",
+        });
+        clearAllAuth();
+        router.replace("/login");
+      } else {
+        setDeleteError((response as any).message || "Failed to deactivate account");
+      }
+    } catch (error: any) {
+      setDeleteError(error?.message || "Failed to deactivate account");
+    } finally {
+      setLoading(prev => ({ ...prev, deleteAccount: false }));
+    }
+  };
 
   // Load sessions on component mount
   useEffect(() => {
@@ -33,7 +137,7 @@ const AccountPage = memo(function AccountPage() {
   const loadSessions = async () => {
     try {
       setLoading(prev => ({ ...prev, loadingSessions: true }));
-      const response = await accountService.getActiveSessions();
+      const response = await sessionService.getActiveSessions();
       if (response.success) {
         setSessions(response.data || []);
       }
@@ -51,7 +155,7 @@ const AccountPage = memo(function AccountPage() {
 
   const loadCurrentSession = async () => {
     try {
-      const response = await accountService.getCurrentSession();
+      const response = await sessionService.getCurrentSession();
       if (response.success && response.data) {
         setCurrentSession(response.data);
       }
@@ -128,7 +232,7 @@ const AccountPage = memo(function AccountPage() {
   const handleRevokeSession = async (sessionId: string) => {
     try {
       setLoading(prev => ({ ...prev, revokeSession: true }));
-      const response = await accountService.logoutSession(sessionId);
+      const response = await sessionService.logoutSession(sessionId);
       
       if (response.success) {
         toast({
@@ -160,7 +264,7 @@ const AccountPage = memo(function AccountPage() {
   const handleRevokeAllSessions = async () => {
     try {
       setLoading(prev => ({ ...prev, revokeAllSessions: true }));
-      const response = await accountService.logoutAllOtherSessions();
+      const response = await sessionService.logoutAllOtherSessions();
       
       if (response.success) {
         toast({
@@ -254,7 +358,7 @@ const AccountPage = memo(function AccountPage() {
                 placeholder="Confirm your new password"
               />
             </div>
-            <Button onClick={handlePasswordChange} disabled={loading.changePassword}>
+            <Button onClick={handlePasswordChange} disabled={loading.changePassword} className="cursor-pointer select-none">
               {loading.changePassword ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -401,16 +505,71 @@ const AccountPage = memo(function AccountPage() {
                   Once you delete your account, there is no going back. Please be certain.
                 </p>
               </div>
-              <Button variant="destructive">
-                Delete Account
-              </Button>
+                  <Button variant="destructive" onClick={() => setDeleteOpen(true)} className="cursor-pointer select-none">
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Account
+                  </Button>
             </div>
           </div>
         </div>
       </div>
       <Toaster />
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Account Deactivation</DialogTitle>
+            <DialogDescription>
+              This action will deactivate your account. To confirm, type your username below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="confirm-username">Username</Label>
+              <Input
+                id="confirm-username"
+                placeholder="Enter your username"
+                value={confirmUsernameInput}
+                onChange={(e) => setConfirmUsernameInput(e.target.value)}
+                disabled={loading.deleteAccount}
+              />
+              {storedUsername && (
+                <p className="text-xs text-muted-foreground mt-1">Current user: <span className="font-medium">{storedUsername}</span></p>
+              )}
+              {deleteError && <p className="text-xs text-red-500 mt-1">{deleteError}</p>}
+            </div>
+            <p className="text-sm text-destructive/80">
+              Deactivation will log you out immediately. You may need admin intervention to reactivate.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={loading.deleteAccount}
+              className="cursor-pointer select-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={loading.deleteAccount || !confirmUsernameInput}
+              className="cursor-pointer select-none"
+            >
+              {loading.deleteAccount ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deactivating...
+                </>
+              ) : (
+                "Confirm Deactivate"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-});
+};
 
 export default AccountPage;

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useCallback, useRef, useState, useEffect, useMemo } from "react";
-import Cookies from "js-cookie";
 import axios from "axios";
 import config from "../config";
+import Cookies from "js-cookie";
 
 type User = {
   id: number;
@@ -22,10 +22,6 @@ type AccessTokenContextType = {
   isAuthenticated: boolean;
   clearAuth: () => void;
 };
-
-// 3 hours in seconds (for cookie expiry)
-const ACCESS_TOKEN_EXPIRE_HOURS = 3;
-const ACCESS_TOKEN_EXPIRE_SECONDS = ACCESS_TOKEN_EXPIRE_HOURS * 60 * 60;
 
 const AccessTokenContext = createContext<AccessTokenContextType>({
   getAccessToken: async () => null,
@@ -46,30 +42,48 @@ export const AccessTokenProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
-  // Helper to check for session cookie
-  const hasSession = () => Cookies.get("session") === "true";
+  // Helper to check for session
+  const hasSession = useCallback(() => {
+    return typeof window !== "undefined" && Cookies.get("session") === "true";
+  }, []);
 
-  // Helper to check if token is expired (with buffer)
-  const isTokenExpired = (token: string): boolean => {
+  // Improved token validation with better error handling
+  const isTokenValid = useCallback((token: string | null): boolean => {
+    if (!token) return false;
+    
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000; // Convert to milliseconds
       const now = Date.now();
       const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
-      return exp < (now + bufferTime);
-    } catch {
-      return true; // Consider invalid tokens as expired
+      
+      return exp > (now + bufferTime);
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return false;
     }
-  };
+  }, []);
 
-  // Helper to store username and email in sessionStorage
-  const setSessionUserInfo = (username: string) => {
+  // Helper to store user information
+  const setSessionUserInfo = useCallback((username: string) => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("username", username);
     }
-  };
+  }, []);
 
-  // Helper to clear authentication
+  const setUserInfoInCookies = useCallback((user: User) => {
+    if (typeof window !== "undefined") {
+      const userData = JSON.stringify(user);
+      const encryptedData = btoa(userData);
+      Cookies.set("_ud", encryptedData, {
+        expires: 1,
+        secure: false,
+        sameSite: "Lax",
+      });
+    }
+  }, []);
+
+  // Clear authentication
   const clearAuth = useCallback(() => {
     setAccessToken(null);
     setUser(null);
@@ -77,121 +91,159 @@ export const AccessTokenProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setError(null);
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("username");
+      sessionStorage.removeItem("accessToken");
+      Cookies.remove("_ud");
+      Cookies.remove("session");
     }
-    Cookies.remove("accessToken");
   }, []);
 
-  // The main function to get a valid access token
+  // The main function to get a valid access token - FIXED VERSION
   const getAccessToken = useCallback(async (): Promise<string | null> => {
+    // Check session first
     if (!hasSession()) {
       clearAuth();
       return null;
     }
 
-    // If we have a valid non-expired token, return it immediately
-    if (accessToken && !isTokenExpired(accessToken)) {
+    // Check if we already have a valid token in state
+    if (accessToken && isTokenValid(accessToken)) {
       return accessToken;
     }
 
-    // Prevent duplicate refresh requests
-    if (refreshPromiseRef.current) {
-      return await refreshPromiseRef.current;
+    // Check sessionStorage for valid token
+    let sessionToken: string | null = null;
+    if (typeof window !== "undefined") {
+      sessionToken = sessionStorage.getItem("accessToken");
+      if (sessionToken && isTokenValid(sessionToken)) {
+        setAccessToken(sessionToken);
+        return sessionToken;
+      }
     }
 
-    setLoading(true);
-    setError(null);
+    // Check cookies for valid token
+    let cookieToken: string | null = null;
+    if (typeof window !== "undefined") {
+      cookieToken = Cookies.get("accessToken") || null;
+      if (cookieToken && isTokenValid(cookieToken)) {
+        setAccessToken(cookieToken);
+        sessionStorage.setItem("accessToken", cookieToken);
+        return cookieToken;
+      }
+    }
 
-    refreshPromiseRef.current = axios
-      .post(
-        `${config.BASE_URL}/api/auth/refresh`,
-        {},
-        { withCredentials: true }
-      )
-      .then((res) => {
-        if (res.data?.success && res.data.data?.accessToken && res.data.data?.user) {
-          const token = res.data.data.accessToken;
-          const userInfo = res.data.data.user;
+    // If no valid token exists, try to refresh
+    try {
+      // Prevent multiple simultaneous refresh requests
+      if (refreshPromiseRef.current) {
+        return await refreshPromiseRef.current;
+      }
 
-          setAccessToken(token);
-          setUser(userInfo);
-          setIsAuthenticated(true);
+      setLoading(true);
+      setError(null);
 
-          // Set accessToken cookie for 3 hours
-          Cookies.set("accessToken", token, {
-            path: "/",
-            sameSite: "lax",
-            secure: process.env.NODE_ENV === "production",
-            expires: ACCESS_TOKEN_EXPIRE_SECONDS / (60 * 60 * 24), // days (fractional)
-          });
+      refreshPromiseRef.current = axios
+        .post(
+          `${config.BASE_URL}/api/auth/refresh`,
+          {},
+          { withCredentials: true }
+        )
+        .then((res) => {
+          if (res.data?.success && res.data.data?.accessToken && res.data.data?.user) {
+            const token = res.data.data.accessToken;
+            const userInfo = res.data.data.user;
 
-          // Set username and email in sessionStorage (replace if exists)
-          setSessionUserInfo(userInfo.username);
+            // Validate the new token
+            if (!isTokenValid(token)) {
+              throw new Error("Received invalid token from refresh");
+            }
 
-          return token;
-        } else {
-          setError(res.data?.message || "Failed to refresh token");
+            // Update all state consistently
+            setAccessToken(token);
+            setUser(userInfo);
+            setIsAuthenticated(true);
+
+            // Update storage
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("accessToken", token);
+              Cookies.set("accessToken", token, {
+                expires: 1/24, // 1 hour
+                secure: false,
+                sameSite: "Lax",
+              });
+              setSessionUserInfo(userInfo.username);
+              setUserInfoInCookies(userInfo);
+            }
+
+            return token;
+          } else {
+            throw new Error(res.data?.message || "Failed to refresh token");
+          }
+        })
+        .catch((error) => {
+          const errorMessage = error?.response?.data?.message || "Failed to refresh token";
+          setError(errorMessage);
           clearAuth();
           return null;
-        }
-      })
-      .catch((err) => {
-        setError(err?.response?.data?.message || "Failed to refresh token");
-        clearAuth();
-        return null;
-      })
-      .finally(() => {
-        setLoading(false);
-        refreshPromiseRef.current = null;
-      });
+        })
+        .finally(() => {
+          refreshPromiseRef.current = null;
+          setLoading(false);
+        });
 
-    return await refreshPromiseRef.current;
-  }, [accessToken, clearAuth]);
+      return await refreshPromiseRef.current;
+    } catch (error) {
+      console.error('Error in getAccessToken:', error);
+      setError(error instanceof Error ? error.message : "Unknown error");
+      clearAuth();
+      return null;
+    }
+  }, [accessToken, hasSession, isTokenValid, clearAuth, setSessionUserInfo, setUserInfoInCookies]);
 
-  // Initialize authentication state on mount
+  // Initialize authentication state on mount - SIMPLIFIED VERSION
   useEffect(() => {
     const initializeAuth = async () => {
       if (initialized) return;
       
       setLoading(true);
-      
-      // First check if we have a session
-      if (!hasSession()) {
-        clearAuth();
-        setLoading(false);
-        setInitialized(true);
-        return;
-      }
+      setError(null);
 
-      // Check if we have a valid access token in cookies
-      const existingToken = Cookies.get("accessToken");
-      if (existingToken && !isTokenExpired(existingToken)) {
-        // Try to get user info from session storage
-        const cachedUserProfile = sessionStorage.getItem('userProfile');
-        if (cachedUserProfile) {
-          try {
-            const userInfo = JSON.parse(cachedUserProfile);
-            setAccessToken(existingToken);
-            setUser(userInfo);
-            setIsAuthenticated(true);
-            setLoading(false);
-            setInitialized(true);
-            return;
-          } catch (parseError) {
-            console.warn('Failed to parse cached user profile');
-          }
-        }
-      }
-
-      // If no valid token or user info, try to refresh
       try {
-        const token = await getAccessToken();
-        if (token) {
-          setIsAuthenticated(true);
-        } else {
+        // Check session first
+        if (!hasSession()) {
           clearAuth();
+          setInitialized(true);
+          setLoading(false);
+          return;
+        }
+
+        // Check for existing valid token
+        let existingToken: string | null = null;
+        
+        if (typeof window !== "undefined") {
+          existingToken = sessionStorage.getItem("accessToken");
+        }
+
+        if (existingToken && isTokenValid(existingToken)) {
+          setAccessToken(existingToken);
+          setIsAuthenticated(true);
+          
+          // Try to get user info from cookies
+          try {
+            const userData = Cookies.get("_ud");
+            if (userData) {
+              const decodedUser = JSON.parse(atob(userData));
+              setUser(decodedUser);
+            }
+          } catch (error) {
+            console.warn('Failed to parse user data from cookies');
+          }
+        } else {
+          // No valid token, try to refresh
+          await getAccessToken();
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
+        setError('Failed to initialize authentication');
         clearAuth();
       } finally {
         setLoading(false);
@@ -200,9 +252,9 @@ export const AccessTokenProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     initializeAuth();
-  }, [initialized]); // Remove getAccessToken and clearAuth from dependencies
+  }, [initialized, hasSession, isTokenValid, getAccessToken, clearAuth]);
 
-  // Memoize context value to prevent unnecessary re-renders
+  // Memoize context value
   const contextValue = useMemo(() => ({
     getAccessToken,
     user,

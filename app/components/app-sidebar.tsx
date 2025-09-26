@@ -15,6 +15,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { useAccessToken } from "../context/AccessTokenContext"
+import Cookies from "js-cookie"
 
 // Function to generate initials from name
 const generateInitials = (name: string): string => {
@@ -37,33 +38,65 @@ const generateInitials = (name: string): string => {
 export const AppSidebar = memo(function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, loading, error } = useAccessToken();
 
+  const encryptedData = Cookies.get("_ud");
+
+  const decryptData = (data: string) => {
+    try {
+      return JSON.parse(atob(data));
+    } catch (error) {
+      console.error("Failed to decrypt data:", error);
+      return null;
+    }
+  };
+
   // Create user data object for NavUser component - memoized to prevent recreation
   const userData = useMemo(() => {
-    if (!user) {
+    let profile = null;
+    if (encryptedData) {
+      profile = decryptData(encryptedData);
+    }
+
+    if (profile && profile.name && profile.email && profile.role) {
+      const initials = generateInitials(profile.name);
       return {
-        name: "Loading...",
-        email: "",
-        avatar: "",
-        role: "Member",
+        name: profile.name,
+        email: profile.email,
+        role: profile.role,
+        avatar: `data:image/svg+xml;base64,${btoa(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="20" fill="#0962c6"/>
+            <text x="50%" y="50%" text-anchor="middle" dy="0.3em" fill="white" font-family="Arial" font-size="14" font-weight="bold">
+              ${initials}
+            </text>
+          </svg>
+        `)}`,
       };
     }
 
-    const initials = generateInitials(user.name);
-    
+    if (user) {
+      const initials = generateInitials(user.name);
+      return {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: `data:image/svg+xml;base64,${btoa(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="20" fill="#0962c6"/>
+            <text x="50%" y="50%" text-anchor="middle" dy="0.3em" fill="white" font-family="Arial" font-size="14" font-weight="bold">
+              ${initials}
+            </text>
+          </svg>
+        `)}`,
+      };
+    }
+
     return {
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: `data:image/svg+xml;base64,${btoa(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-          <circle cx="20" cy="20" r="20" fill="#0962c6"/>
-          <text x="50%" y="50%" text-anchor="middle" dy="0.3em" fill="white" font-family="Arial" font-size="14" font-weight="bold">
-            ${initials}
-          </text>
-        </svg>
-      `)}`,
+      name: "Loading...",
+      email: "",
+      avatar: "",
+      role: "Member",
     };
-  }, [user]);
+  }, [encryptedData, user]);
   
 
   return (

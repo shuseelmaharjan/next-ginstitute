@@ -8,8 +8,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import apiHandler from "../api/apiHandler";
 import Cookies from "js-cookie";
+import apiClient from "../api/apiClient";
 
 
 export default function LoginPage() {
@@ -27,7 +27,7 @@ export default function LoginPage() {
         setErrorMsg("");
 
         try {
-            const res = await apiHandler({
+            const res = await apiClient({
                 url: "/api/auth/login",
                 method: "POST",
                 data: {
@@ -36,28 +36,23 @@ export default function LoginPage() {
                 },
             });
 
-            if (res.success) {
-                Cookies.set("accessToken", res.data.accessToken, {
-                    expires: 1 / 8,
-                    secure: false,
-                    sameSite: "Lax",
-                });
+            const encryptData = (data: string) => {
+                return btoa(data); 
+            }
 
+            if (res.success) {
                 if (typeof window !== "undefined" && res.data.user) {
                     sessionStorage.setItem("username", res.data.user.username);
                 }
-
-                Cookies.set("username", form.username, {
+                Cookies.set("_ud", encryptData(JSON.stringify(res.data.user)), {
                     expires: 1,
                     secure: false,
                     sameSite: "Lax",
                 });
-                Cookies.set("password", form.password, {
-                    expires: 1,
-                    secure: false,
-                    sameSite: "Lax",
-                });
-
+                // Store accessToken in cookie with 1 hour expiry
+                if (res.data.accessToken) {
+                    localStorage.setItem("accessToken", res.data.accessToken);
+                }
                 router.push("/");
             } else {
                 setErrorMsg(res.message || "Login failed");
@@ -152,7 +147,7 @@ export default function LoginPage() {
                         >
                             <Button
                                 type="submit"
-                                className="w-full bg-primary-color hover:bg-blue-600 text-white font-bold py-5 rounded-xl shadow-lg transition-all duration-300 relative overflow-hidden"
+                                className="w-full bg-primary-color hover:bg-blue-600 text-white font-bold py-5 rounded-xl shadow-lg transition-all duration-300 relative overflow-hidden cursor-pointer select-none"
                                 onMouseEnter={() => setIsHovered(true)}
                                 onMouseLeave={() => setIsHovered(false)}
                             >

@@ -9,8 +9,15 @@ import { FaEnvelope, FaPhone } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { FaArrowRight } from "react-icons/fa";
 import { FaUser } from "react-icons/fa";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { useAuth } from "../hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@radix-ui/react-dropdown-menu";
 import { MdDashboard } from "react-icons/md";
 import { IoMdLogOut } from "react-icons/io";
 import {
@@ -22,11 +29,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import apiHandler from "../api/apiHandler";
+import { useAccessToken } from "../context/AccessTokenContext";
 
 type NavLink = {
   href: string;
@@ -43,53 +51,44 @@ const NAV_LINKS: NavLink[] = [
   { href: "/contact", label: "Contact" },
 ];
 
-export default function Navbar() {
+function Navbar() {
+  // Use the hook inside the component!
+  const { isAuthenticated, loading: isLoading, clearAuth } = useAccessToken();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { isAuthenticated, username, isLoading } = useAuth();
+
+  const encryptedData = Cookies.get("_ud");
+
+  const decryptData = (data: string) => {
+    try {
+      return JSON.parse(atob(data));
+    } catch (error) {
+      console.error("Failed to decrypt data:", error);
+      return null;
+    }
+  };
+  const userData = encryptedData ? decryptData(encryptedData) : null;
+
+  const username =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("username") || userData?.username || null
+      : userData?.username || null;
   const router = useRouter();
 
   // Logout function
   const handleLogout = async () => {
     setIsLoggingOut(true);
-
     try {
-      // Use apiHandler for logout API call
       await apiHandler({
         url: "/api/auth/logout",
         method: "POST",
-        data: {}, // if required
+        data: {},
       });
-
-      // Clear session storage
-      sessionStorage.removeItem("username");
-      sessionStorage.removeItem("userProfile");
-
-      // Remove all cookies
-      const allCookies = Cookies.get();
-      Object.keys(allCookies).forEach((cookieName) => {
-        Cookies.remove(cookieName);
-        Cookies.remove(cookieName, { path: "/" });
-        Cookies.remove(cookieName, { path: "", domain: window.location.hostname });
-      });
-
-      // Redirect to login and reload page
+      clearAuth();
       router.push("/login");
       window.location.reload();
-
     } catch (error) {
-      console.error("Logout error:", error);
-
-      // Still clear local data even if API call fails
-      sessionStorage.removeItem("username");
-
-      const allCookies = Cookies.get();
-      Object.keys(allCookies).forEach((cookieName) => {
-        Cookies.remove(cookieName);
-        Cookies.remove(cookieName, { path: "/" });
-        Cookies.remove(cookieName, { path: "", domain: window.location.hostname });
-      });
-
+      clearAuth();
       router.push("/login");
       window.location.reload();
     } finally {
@@ -103,7 +102,6 @@ export default function Navbar() {
     } else {
       document.body.style.overflow = "unset";
     }
-
     return () => {
       document.body.style.overflow = "unset";
     };
@@ -124,7 +122,6 @@ export default function Navbar() {
 
   return (
     <>
-
       <nav className="sticky top-0 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/95 shadow-sm z-50">
         <div className="bg-primary-color py-1 h-auto">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center text-white px-4 gap-y-2 md:gap-y-0">
@@ -159,7 +156,6 @@ export default function Navbar() {
 
               {/* Login / Dropdown */}
               {isLoading ? (
-                // <div className="w-16 h-8 bg-orange-300/50 animate-pulse rounded"></div>
                 <></>
               ) : isAuthenticated && username ? (
                 <DropdownMenu>
@@ -465,3 +461,5 @@ export default function Navbar() {
     </>
   );
 }
+
+export default Navbar;

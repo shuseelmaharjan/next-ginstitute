@@ -43,13 +43,9 @@ class DepartmentService {
 
   // Get all departments
   async getAllDepartments(): Promise<Department[]> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<DepartmentResponse>({
       url: "/api/v1/departments",
       method: "GET",
-      accessToken,
     });
 
     if (response.success) {
@@ -60,13 +56,9 @@ class DepartmentService {
 
   // Get department by ID
   async getDepartmentById(id: number): Promise<Department> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<DepartmentResponse>({
       url: `/api/v1/departments/${id}`,
       method: "GET",
-      accessToken,
     });
 
     if (response.success && !Array.isArray(response.data)) {
@@ -77,13 +69,9 @@ class DepartmentService {
 
   // Create new department
   async createDepartment(data: CreateDepartmentRequest): Promise<Department> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<DepartmentResponse>({
       url: "/api/v1/departments",
       method: "POST",
-      accessToken,
       data,
     });
 
@@ -95,13 +83,9 @@ class DepartmentService {
 
   // Update department name
   async updateDepartmentName(id: number, departmentName: string): Promise<Department> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<DepartmentResponse>({
       url: `/api/v1/department/${id}/update`,
       method: "PUT",
-      accessToken,
       data: { departmentName },
     });
 
@@ -113,13 +97,9 @@ class DepartmentService {
 
   // Update department status
   async updateDepartmentStatus(id: number, isActive: boolean): Promise<Department> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<DepartmentResponse>({
       url: `/api/v1/${id}/status`,
       method: "PUT",
-      accessToken,
       data: { isActive },
     });
 
@@ -131,13 +111,9 @@ class DepartmentService {
 
   // Get departments by faculty ID
   async getDepartmentsByFacultyId(facultyId: number): Promise<Department[]> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new Error("Access token not found");
-
     const response = await apiHandler<DepartmentResponse>({
       url: `/api/v1/departmentsfaculty/faculty/${facultyId}`,
       method: "GET",
-      accessToken,
     });
 
     if (response.success) {
