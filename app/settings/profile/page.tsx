@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthenticate } from "../../context/AuthenticateContext";
-import { User, Camera, Save } from "lucide-react";
 import { EditUserModal } from "./EditUserModal";
 import { UploadProfilePictureModal } from "./UploadProfilePictureModal";
 import { fetchFullUser } from "@/app/services/userService";
-import { formatDate, toSentenceCase } from "@/app/utils/textUtils";
+import { formatDate, toSentenceCase } from "@/utils/textUtils";
 import config from "@/app/config";
 
 export default function ProfilePage() {
@@ -56,7 +54,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Profile Settings</h2>
         <p className="text-muted-foreground">

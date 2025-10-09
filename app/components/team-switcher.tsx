@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronsUpDown } from "lucide-react"
-import { toSentenceCase } from './../utils/textUtils';
+import { toSentenceCase } from '../../utils/textUtils';
 import {
   DropdownMenu,
   DropdownMenuContent,

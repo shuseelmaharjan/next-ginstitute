@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Edit, Power, PowerOff } from "lucide-react";
 import { Faculty } from "@/app/services/facultyService";
-import { formatCreatedUpdatedDates, formatDate } from "@/app/utils/textUtils";
+import { formatCreatedUpdatedDates, formatDate } from "@/utils/textUtils";
 
 interface FacultyListProps {
   faculties: Faculty[];

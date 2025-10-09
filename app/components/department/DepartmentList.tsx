@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../../components/ui/table";
-import { formatDate } from "@/app/utils/textUtils";
+import { formatDate } from "@/utils/textUtils";
 
 interface DepartmentListProps {
   departments: Department[];

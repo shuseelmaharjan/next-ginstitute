@@ -54,7 +54,10 @@ export default function LoginPage() {
                     localStorage.setItem("accessToken", res.data.accessToken);
                 }
                 router.push("/");
-                
+                // Reload the page after route push
+                setTimeout(() => {
+                    window.location.reload();
+                }, 100);
             } else {
                 setErrorMsg(res.message || "Login failed");
             }

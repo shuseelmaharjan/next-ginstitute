@@ -36,8 +36,8 @@ const courseNavItems: CourseNavItem[] = [
 		icon: BookOpen,
 		defaultOpen: false,
 		items: [
-			{ title: "All Courses", url: "/courses/all" },
-			{ title: "Add Courses", url: "/courses/add" },
+			{ title: "All Courses", url: "/all-courses" },
+			{ title: "Add Courses", url: "/all-courses/add-course" },
 		],
 	},
 	{

@@ -35,21 +35,22 @@ const navigationItems: NavigationItem[] = [
     defaultOpen: false,
     items: [
       { title: "All Students", url: "/users/students" },
-      { title: "New Admission", url: "/users/admissions/new" },
+      { title: "New Admission", url: "/users/admission" },
       { title: "All Teachers", url: "/users/teachers" },
       { title: "Add Teacher", url: "/users/teachers/add" },
       { title: "All Staff", url: "/users/staff" },
-      { title: "Add Staff", url: "/users/staff/add" },
+        { title: "Add Staff", url: "/users/staff/add" },
+        { title: "Pending Approvals", url: "/users/pending-approvals" },
     ],
   },
   {
-    title: "Classes",
-    url: "/classes",
+    title: "Classroom",
+    url: "/classroom",
     icon: GraduationCap,
     defaultOpen: false,
     items: [
-      { title: "All Classes", url: "/classes/all" },
-      { title: "Add Class", url: "/classes/add" },
+      { title: "Classroom", url: "/classroom/all-classrooms" },
+      { title: "Add Class", url: "/classroom/add-classroom" },
     ],
   }
 ];

@@ -2,6 +2,7 @@ import NavbarWrapper from "./components/NavbarWrapper";
 import { AuthenticateProvider } from "./context/AuthenticateContext";
 import "./globals.css";
 import type { Metadata } from "next";
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "Golden Future Institute",
@@ -22,6 +23,7 @@ export default function RootLayout({
         <AuthenticateProvider>
           <NavbarWrapper />
           <main>{children}</main>
+          <Toaster />
         </AuthenticateProvider>
       </body>
     </html>

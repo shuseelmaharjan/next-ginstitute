@@ -42,6 +42,7 @@ const siteNav: SiteNavItem = {
 		{ title: "Ads", url: "/site/ads" },
 		{ title: "Downloads", url: "/site/downloads" },
 		{ title: "Gallery", url: "/site/gallery" },
+		{ title: "Career", url: "/site/career" },
 	],
 };
 
