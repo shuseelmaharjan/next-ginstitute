@@ -287,15 +287,16 @@ export default function DraftUserListPage() {
             <div className="space-y-4">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-black hover:bg-black/90">
                             <TableHead className="w-16">S.N.</TableHead>
-                            <TableHead>User</TableHead>
-                            <TableHead>Username</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Contact</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created By</TableHead>
-                            <TableHead>Date Created</TableHead>
+                            <TableHead className="font-bold text-white">User</TableHead>
+                            <TableHead className="font-bold text-white">Username</TableHead>
+                            <TableHead className="font-bold text-white">Email</TableHead>
+                            <TableHead className="font-bold text-white">Contact</TableHead>
+                            <TableHead className="font-bold text-white">Status</TableHead>
+                            <TableHead className="font-bold text-white">Created By</TableHead>
+                            <TableHead className="font-bold text-white">Date Created</TableHead>
+                            <TableHead className="font-bold text-white">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -340,6 +341,7 @@ export default function DraftUserListPage() {
                                     </div>
                                 </TableCell>
                                 <TableCell>{formatDate(user.createdAt)}</TableCell>
+                                <TableCell><Button variant="default" className="cursor-pointer" onClick={() => router.push(`/users/assign-engagements?user=${user.id}`)}>Assign Engagement</Button></TableCell>
                             </TableRow>
                         ))}
                     </TableBody>

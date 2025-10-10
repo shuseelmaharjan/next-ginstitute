@@ -8,7 +8,8 @@ import {
   Settings, 
   Users, 
   Key,
-  Menu 
+  Menu,
+    Banknote
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -41,12 +42,19 @@ const allNavItems: SettingsNavItem[] = [
     icon: Users,
     description: "Manage faculty-related settings and permissions"
   },
+    {
+    title: "Configure Fee Structure",
+    href: "/settings/configure-fee-structure",
+    icon: Banknote,
+    description: "Set up and manage fee structures for courses"
+    },
   {
     title: "API",
     href: "/settings/api",
     icon: Key,
     description: "API keys, webhooks, and integration settings"
   },
+
 ];
 
 // settingsNavItems will be determined inside the component after role is set

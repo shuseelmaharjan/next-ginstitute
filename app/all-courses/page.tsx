@@ -12,6 +12,9 @@ import { formatDate } from "@/utils/formatDate";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {formatDuration} from "@/utils/formatDuration";
 import { MoreVertical } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
+import { toast } from "@/components/hooks/use-toast";
 
 interface Course {
   id: number;
@@ -22,6 +25,7 @@ interface Course {
   slug: string;
   createdBy: string;
   createdAt: string;
+  updatedAt: string; // Added missing property
   updatedByUser?: {
     firstName: string;
     lastName: string;
@@ -55,6 +59,10 @@ export default function AllCoursesPage() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+
+  const router = useRouter();
 
   // Fetch all courses on mount
   useEffect(() => {
@@ -103,8 +111,33 @@ export default function AllCoursesPage() {
       } else {
         // Optionally show a toast for error
       }
-    } catch (err) {
+    } catch {
       // Optionally show a toast for error
+    }
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete) return;
+    try {
+      const res = await apiHandler({
+        url: `/api/v1/courses/${courseToDelete.id}`,
+        method: "DELETE",
+      });
+      if (res.success) {
+        toast({ title: "Success", description: `Course '${courseToDelete.title}' deleted successfully!`, variant: "success" });
+        setCourses((prev) => prev.filter((c) => c.id !== courseToDelete.id));
+      } else {
+        toast({ title: "Error", description: res.message || "Failed to delete course.", variant: "destructive" });
+      }
+    } catch (err: unknown) {
+      let message = "Failed to delete course.";
+      if (err && typeof err === "object" && "message" in err) {
+        message = (err as { message: string }).message;
+      }
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setDeleteDialogOpen(false);
+      setCourseToDelete(null);
     }
   };
 
@@ -113,7 +146,7 @@ export default function AllCoursesPage() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">All Courses Page</h2>
-          <p className="text-muted-foreground">Browse and manage all courses. Use filters to narrow your search.</p>
+          <p>Browse and manage all courses. Use filters to narrow your search.</p>
         </div>
         <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
           <SheetTrigger asChild>
@@ -153,80 +186,96 @@ export default function AllCoursesPage() {
           </SheetContent>
         </Sheet>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="border-1 p-4 rounded-md shadow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div>Loading...</div>
         ) : courses.length === 0 ? (
           <div>No courses found.</div>
         ) : (
           courses.map((course) => (
-            <Card key={course.id} className="flex flex-col h-full pt-0 pb-4 rounded-md">
-              <div className="relative w-full h-60">
-                <Image src={`${process.env.NEXT_PUBLIC_API_BASE_URL}${course.image}`} alt={course.title} width={400} height={160} className="w-full h-60 object-cover rounded-t-md" />
-                <button
-                  type="button"
-                  aria-label="Toggle popular"
-                  onClick={() => handleTogglePopular(course.id)}
-                  className="absolute top-2 right-2 z-20 p-2 bg-white/80 rounded-full shadow hover:bg-yellow-100"
-                >
-                  {course.popular ? (
-                    <Star size={24} className="text-yellow-500" fill="#facc15" />
-                  ) : (
-                    <StarOff size={24} className="text-gray-400" />
-                  )}
-                </button>
-              </div>
-              <div className="px-4 flex-1 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <CardHeader className="p-0">
-                    <CardTitle className="text-xl">{course.title}</CardTitle>
-                    <div className="text-sm text-muted-foreground">{course.department?.departmentName}</div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="flex justify-between items-center text-sm">
-                      <div><b>Duration:</b> {formatDuration(course.duration)}</div>
-                      <div><b>Slug:</b> {course.slug}</div>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <div><b>Created By:</b> {course.createdByUser?.firstName} {course.createdByUser?.lastName}</div>
-                      <div><b>Created At:</b> {formatDate(course.createdAt)}</div>
-                    </div>
-                    {course.updatedByUser && (
-                      <div className="flex justify-between items-center text-sm">
-                        <div><b>Updated By:</b> {course.updatedByUser.firstName} {course.updatedByUser.lastName}</div>
-                        <div><b>Updated At:</b> {formatDate(course.updatedAt)}</div>
+
+              <Card key={course.id} className="flex flex-col h-full pt-0 pb-4 rounded-md">
+                  <div className="relative w-full h-60">
+                      <Image src={`${process.env.NEXT_PUBLIC_API_BASE_URL}${course.image}`} alt={course.title} width={400} height={160} className="w-full h-60 object-cover rounded-t-md" />
+                      <button
+                          type="button"
+                          aria-label="Toggle popular"
+                          onClick={() => handleTogglePopular(course.id)}
+                          className="absolute top-2 right-2 z-20 p-2 bg-white/80 rounded-full shadow hover:bg-yellow-100"
+                      >
+                          {course.popular ? (
+                              <Star size={24} className="text-yellow-500" fill="#facc15" />
+                          ) : (
+                              <StarOff size={24} className="text-gray-400" />
+                          )}
+                      </button>
+                  </div>
+                  <div className="px-4 flex-1 flex flex-col justify-between">
+                      <div className="space-y-2">
+                          <CardHeader className="p-0">
+                              <CardTitle className="text-xl">{course.title}</CardTitle>
+                              <div className="text-sm text-muted-foreground">{course.department?.departmentName}</div>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                              <div className="flex justify-between items-center text-sm">
+                                  <div><b>Duration:</b> {formatDuration(course.duration)}</div>
+                                  <div><b>Slug:</b> {course.slug}</div>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                  <div><b>Created By:</b> {course.createdByUser?.firstName} {course.createdByUser?.lastName}</div>
+                                  <div><b>Created At:</b> {formatDate(course.createdAt)}</div>
+                              </div>
+                              {course.updatedByUser && (
+                                  <div className="flex justify-between items-center text-sm">
+                                      <div><b>Updated By:</b> {course.updatedByUser.firstName} {course.updatedByUser.lastName}</div>
+                                      <div><b>Updated At:</b> {formatDate(course.updatedAt)}</div>
+                                  </div>
+                              )}
+                          </CardContent>
                       </div>
-                    )}
-                  </CardContent>
-                </div>
-                <CardFooter className="flex justify-between items-end pt-2 px-0">
-                  {course.cost !== null && course.cost !== undefined ? (
-                    <div>
-                      <span className="font-semibold text-lg">{course.currency?.toUpperCase()} {course.cost}</span>
-                    </div>
-                  ) : (
-                    <Button variant="outline">Add Cost</Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="ml-2">
-                        <span className="sr-only">Course Actions</span>
-                          <MoreVertical/>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View Course</DropdownMenuItem>
-                      <DropdownMenuItem>Edit Course</DropdownMenuItem>
-                      <DropdownMenuItem>Update Cost</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">Delete Course</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardFooter>
-              </div>
-            </Card>
+                      <CardFooter className="flex justify-between items-end pt-2 px-0">
+                          {course.cost !== null && course.cost !== undefined ? (
+                              <div>
+                                  <span className="font-semibold text-lg">{course.currency?.toUpperCase()} {course.cost}</span>
+                              </div>
+                          ) : (
+                              <Button variant="outline" onClick={()=> router.push(`/all-courses/add-course/${course.id}`)}>Add Cost</Button>
+                          )}
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="ml-2">
+                                      <span className="sr-only">Course Actions</span>
+                                      <MoreVertical/>
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => window.open(`/courses/${course.slug}`, '_blank')}>View Course</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => router.push(`/all-courses/update-course?course=${course.id}`)}>Edit Course</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => router.push(`/all-courses/update-cost?course=${course.id}&currency=${course.currency}&course-cost=${course.cost}`)}>Update Cost</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-red-600" onClick={() => { setCourseToDelete(course); setDeleteDialogOpen(true); }}>Delete Course</DropdownMenuItem>
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                      </CardFooter>
+                  </div>
+              </Card>
+
           ))
         )}
       </div>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Course</AlertDialogTitle>
+            <AlertDialogDescription>
+              {courseToDelete ? `Do you want to delete '${courseToDelete.title}'? This action cannot be undone.` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer" onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCourse} className="cursor-pointer bg-red-600 text-white hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

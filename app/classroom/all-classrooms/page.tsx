@@ -279,7 +279,7 @@ export default function AllClassroomsPage() {
 
       </div>
         <div className="border-1 shadow rounded-lg p-4">
-            <Table className="w-full text-sm ">
+            <Table className="w-full text-sm">
                 <TableHeader>
                     <TableRow className="bg-black hover:bg-black/90 text-white">
                         <TableCell className="font-bold">S.N.</TableCell>
