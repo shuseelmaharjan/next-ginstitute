@@ -9,14 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/hooks/use-toast";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import apiHandler from "@/app/api/apiHandler";
 import { formatDuration } from "@/utils/formatDuration";
 import { Input } from "@/components/ui/input";
 import { Select as ShadSelect, SelectTrigger as ShadSelectTrigger, SelectValue as ShadSelectValue, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import {router} from "next/client";
 
 // Define types
 interface UserInfo {
@@ -43,6 +42,7 @@ interface EnrollmentInfo {
 export default function ConfigureFeeStructurePage() {
   const searchParams = useSearchParams();
   const userId = searchParams.get("user") || "";
+  const router = useRouter();
 
   // State for enrollment info
   const [enrollmentInfo, setEnrollmentInfo] = useState<EnrollmentInfo | null>(null);
@@ -210,32 +210,38 @@ export default function ConfigureFeeStructurePage() {
   // Form submit handler (called after confirmation)
   const handleConfirmedSubmit = async () => {
     setSubmitting(true);
-    const enrollmentDate = "2025-10-10"; // Use context date
-    const formData: {
-      user_id: string;
-      department_id: string;
-      course_id: string;
-      class_id: string;
-      section_id: string;
-      enrollmentDate: string;
-      totalFees: number;
-      discount: number;
-      netFees: number;
-      discountType?: string;
-      remarks?: string;
-    } = {
+    // Ensure all required fields are present and valid
+    const formData = {
       user_id: userId,
       department_id: selectedDepartment,
       course_id: selectedCourse,
       class_id: selectedClassroom,
       section_id: selectedSection,
-      enrollmentDate,
-      totalFees,
-      discount,
-      netFees,
+      totalFees: totalFees ?? 0,
+      discountType: discountType || "none",
+      discount: discount ?? 0,
+      netFees: netFees ?? 0,
+      remarks: remarks || "",
     };
-    if (discountType) formData.discountType = discountType;
-    if (remarks) formData.remarks = remarks;
+    // Validate required fields
+    const missingFields: string[] = [];
+    if (!formData.user_id) missingFields.push("user_id");
+    if (!formData.department_id) missingFields.push("department_id");
+    if (!formData.course_id) missingFields.push("course_id");
+    if (!formData.class_id) missingFields.push("class_id");
+    if (!formData.section_id) missingFields.push("section_id");
+    if (formData.totalFees === undefined) missingFields.push("totalFees");
+    if (formData.netFees === undefined) missingFields.push("netFees");
+    if (formData.remarks === "") missingFields.push("remarks");
+    if (missingFields.length > 0) {
+      toast({
+        title: "Error",
+        description: `Missing required field(s): ${missingFields.join(", ")}`,
+        variant: "destructive"
+      });
+      setSubmitting(false);
+      return;
+    }
     try {
       const result = await apiHandler({
         url: "/api/v1/student-enrollments",
@@ -245,12 +251,24 @@ export default function ConfigureFeeStructurePage() {
       if (result.success) {
         toast({ title: "Success", description: result.message, variant: "success" });
         setFormDisabled(true);
-        router.push("/users");
-      } else {
-        toast({ title: "Error", description: result.message || "Failed to enroll student.", variant: "destructive" });
+        router.push("/users/students");
       }
-    } catch {
-      toast({ title: "Error", description: "Failed to enroll student.", variant: "destructive" });
+    } catch (err: unknown) {
+      // Try to extract message from error response (including status 400)
+      let errorMessage = "Failed to enroll student.";
+      if (typeof err === "object" && err !== null) {
+        const errorObj = err as { response?: { data?: { message?: string } }, message?: string };
+        if (errorObj.response?.data?.message) {
+          errorMessage = errorObj.response.data.message;
+        } else if (errorObj.message && typeof errorObj.message === "string") {
+          if (errorObj.message.includes("status code 400") && errorObj.response?.data) {
+            errorMessage = errorObj.response.data.message || JSON.stringify(errorObj.response.data);
+          } else {
+            errorMessage = errorObj.message;
+          }
+        }
+      }
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
     setSubmitting(false);
     setOpenConfirm(false);
@@ -508,9 +526,6 @@ export default function ConfigureFeeStructurePage() {
                           </div>
                         </div>
                       </form>
-                      {formDisabled && (
-                        <div className="mt-4 text-center text-destructive font-semibold">Submission complete. You cannot update this enrollment.</div>
-                      )}
                     </div>
                 </CardContent>
             </Card>

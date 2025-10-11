@@ -128,7 +128,13 @@ export default async function apiHandler<T = any>({
     return response;
 
   } catch (error: any) {
-    const message = error?.message || "Unexpected error occurred";
+    // Extract backend error message if available
+    let message = "Unexpected error occurred";
+    if (error?.response?.data?.message) {
+      message = error.response.data.message;
+    } else if (error?.message) {
+      message = error.message;
+    }
 
     if (message === REFRESH_ERROR_MESSAGE) {
       onWarning?.(message);
