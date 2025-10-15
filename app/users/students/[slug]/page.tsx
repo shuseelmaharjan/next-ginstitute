@@ -2,16 +2,71 @@
 import { useParams } from "next/navigation";
 import {decryptNumber} from "@/utils/numberCrypto";
 import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiHandler from "@/app/api/apiHandler";
 import { Badge } from "@/components/ui/badge";
+import { 
+    User, 
+    Mail, 
+    Calendar, 
+    Shield, 
+    UserCheck, 
+    Clock, 
+    Users, 
+    MapPin, 
+    FileText, 
+    GraduationCap, 
+    CheckCircle2, 
+    XCircle,
+    Phone,
+    Home,
+    Building
+} from "lucide-react";
+
+// Document Card Component
+function DocumentCard({ doc }: { doc: any }) {
+    const [imageError, setImageError] = useState(false);
+    const imageUrl = doc.document ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${doc.document}` : null;
+    
+    return (
+        <div className="flex flex-col items-center space-y-2">
+            <div className="relative group">
+                {imageUrl && !imageError ? (
+                    <img 
+                        src={imageUrl}
+                        alt={doc.type} 
+                        className="h-24 w-24 object-cover rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
+                        onError={() => {
+                            console.error('Image failed to load:', imageUrl);
+                            setImageError(true);
+                        }}
+                    />
+                ) : (
+                    <div className="h-24 w-24 bg-gray-100 rounded-lg border shadow-sm flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-gray-400" />
+                    </div>
+                )}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg"></div>
+            </div>
+            <div className="text-center">
+                <Badge variant="outline" className="text-xs">
+                    {doc.type}
+                </Badge>
+                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {doc.createdAt?.slice(0, 10)}
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function userSlugPage() {
     const params = useParams();
     const slug = params?.slug;
-    const userId = decryptNumber(slug);
+    const userId = typeof slug === "string" ? decryptNumber(slug) : undefined;
     const [userData, setUserData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -50,119 +105,389 @@ export default function userSlugPage() {
     const { personalInfo, guardianInfo, addressInfo, accountStatus, accountCreatedUpdatedInfo, userDocumentInfo, enrollmentInfo, inactiveEnrollmentInfo } = userData;
     return (
         <div className="space-y-6">
-            {/* Personal Info */}
-            <Card className="p-6 flex gap-6 items-center">
-                <Avatar className="h-24 w-24">
-                    <AvatarImage src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : undefined} alt={personalInfo.name} />
-                    <AvatarFallback>{personalInfo.name?.[0] || "?"}</AvatarFallback>
-                </Avatar>
-                <div className="space-y-2">
-                    <div className="font-bold text-2xl">{personalInfo.name}</div>
-                    <div className="text-muted-foreground">Username: {personalInfo.username}</div>
-                    <div>Email: {personalInfo.email}</div>
-                    <div>Date of Birth: {personalInfo.dateOfBirth}</div>
-                    <div>Sex: <Badge>{personalInfo.sex}</Badge></div>
-                    <div>Role: <Badge>{personalInfo.role}</Badge></div>
+            {/* First Row - Main Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Profile (Col 1) */}
+                <Card>
+                    <CardContent className="flex flex-col items-center p-6">
+                        <Avatar className="h-32 w-32 mb-4">
+                            <AvatarImage src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : undefined} alt={personalInfo.name} />
+                            <AvatarFallback className="text-2xl">{personalInfo.name?.[0] || "?"}</AvatarFallback>
+                        </Avatar>
+                        <h2 className="font-bold text-xl text-center">{personalInfo.name}</h2>
+                    </CardContent>
+                </Card>
+
+                {/* Personal Details (Col 2) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <User className="h-5 w-5" />
+                            Personal Information
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Username:</span>
+                            <span>{personalInfo.username}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Email:</span>
+                            <span>{personalInfo.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Date of Birth:</span>
+                            <span>{personalInfo.dateOfBirth}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Sex:</span>
+                            <Badge variant="secondary">{personalInfo.sex}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Role:</span>
+                            <Badge>{personalInfo.role}</Badge>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Account Status & Create/Update Info (Col 3) */}
+                <div className="space-y-4">
+                    {/* Account Status (Row 1 of Col 3) */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <UserCheck className="h-5 w-5" />
+                                Account Status
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium">Status:</span>
+                                <Badge variant={accountStatus.status === 'Enrolled' ? 'default' : 'secondary'}>
+                                    {accountStatus.status}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium">Active:</span>
+                                {accountStatus.isActive ? (
+                                    <Badge variant="default" className="flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Yes
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="destructive" className="flex items-center gap-1">
+                                        <XCircle className="h-3 w-3" />
+                                        No
+                                    </Badge>
+                                )}
+                            </div>
+                            {accountStatus.graduatedDate && (
+                                <div className="flex items-center gap-2">
+                                    <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium">Graduated:</span>
+                                    <span>{accountStatus.graduatedDate}</span>
+                                </div>
+                            )}
+                            {accountStatus.leaveReason && (
+                                <div className="flex items-center gap-2">
+                                    <span className="font-medium">Leave Reason:</span>
+                                    <span>{accountStatus.leaveReason}</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Account Create/Update Info (Row 2 of Col 3) */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Clock className="h-5 w-5" />
+                                Account History
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium">Created:</span>
+                                    <span>{accountCreatedUpdatedInfo.createdAt?.slice(0, 10)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium">Created By:</span>
+                                    <span className="text-sm">{accountCreatedUpdatedInfo.createdBy?.fullName}</span>
+                                </div>
+                            </div>
+                            {accountCreatedUpdatedInfo.updatedAt && (
+                                <div className="space-y-2 border-t pt-2">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">Updated:</span>
+                                        <span>{accountCreatedUpdatedInfo.updatedAt?.slice(0, 10)}</span>
+                                    </div>
+                                    {accountCreatedUpdatedInfo.updatedBy && (
+                                        <div className="flex items-center gap-2">
+                                            <User className="h-4 w-4 text-muted-foreground" />
+                                            <span className="font-medium">Updated By:</span>
+                                            <span className="text-sm">{accountCreatedUpdatedInfo.updatedBy?.fullName}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
+            </div>
+            {/* Active Enrollment - Full Width Row */}
+            {enrollmentInfo?.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <GraduationCap className="h-5 w-5" />
+                            Active Enrollment
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {enrollmentInfo.map((enroll: any) => (
+                                <div key={enroll.id} className="border rounded-lg p-4 bg-green-50 border-green-200">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                                                <Building className="h-4 w-4" />
+                                                {enroll.class?.className} - {enroll.section?.sectionName}
+                                            </h3>
+                                            <p className="text-muted-foreground">{enroll.department?.departmentName}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                <span className="font-medium">Enrollment:</span>
+                                                <span>{enroll.enrollmentDate?.slice(0, 10)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Total Fees:</span>
+                                                <Badge variant="outline">{enroll.totalFees}</Badge>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Discount:</span>
+                                                <span>{enroll.discount} {enroll.discountType}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Net Fees:</span>
+                                                <Badge>{enroll.netFees}</Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {enroll.remarks && (
+                                        <div className="mt-3 p-3 bg-white rounded border">
+                                            <span className="font-medium">Remarks:</span> {enroll.remarks}
+                                        </div>
+                                    )}
+                                    <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+                                        <User className="h-3 w-3" />
+                                        Created by: {enroll.createdBy?.fullName} on {enroll.createdAt?.slice(0, 10)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Guardian Information */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Guardian Information
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Father:</span>
+                                <span>{guardianInfo.fatherName}</span>
+                                {guardianInfo.fatherNumber && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                        <Phone className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-sm">{guardianInfo.fatherNumber}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Mother:</span>
+                                <span>{guardianInfo.motherName}</span>
+                                {guardianInfo.motherNumber && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                        <Phone className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-sm">{guardianInfo.motherNumber}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Grandfather:</span>
+                                <span>{guardianInfo.grandfatherName}</span>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Grandmother:</span>
+                                <span>{guardianInfo.grandmotherName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Guardian:</span>
+                                <span>{guardianInfo.guardianName}</span>
+                                {guardianInfo.guardianContact && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                        <Phone className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-sm">{guardianInfo.guardianContact}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-red-500" />
+                                <span className="font-medium">Emergency Contact:</span>
+                                <Badge variant="destructive">{guardianInfo.emergencyContact}</Badge>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
-            {/* Guardian Info */}
-            <Card className="p-6">
-                <div className="font-bold text-lg mb-2">Guardian Information</div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>Father: {guardianInfo.fatherName} ({guardianInfo.fatherNumber})</div>
-                    <div>Mother: {guardianInfo.motherName} ({guardianInfo.motherNumber})</div>
-                    <div>Grandfather: {guardianInfo.grandfatherName}</div>
-                    <div>Grandmother: {guardianInfo.grandmotherName}</div>
-                    <div>Guardian: {guardianInfo.guardianName} ({guardianInfo.guardianContact})</div>
-                    <div>Emergency Contact: {guardianInfo.emergencyContact}</div>
-                </div>
+
+            {/* Address Information */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5" />
+                        Address Information
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Permanent Address */}
+                        <div>
+                            <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                <Home className="h-4 w-4" />
+                                Permanent Address
+                            </h3>
+                            <div className="space-y-2 text-sm">
+                                <div><span className="font-medium">Country:</span> {addressInfo.country}</div>
+                                <div><span className="font-medium">State:</span> {addressInfo.permanentState}</div>
+                                <div><span className="font-medium">City:</span> {addressInfo.permanentCity}</div>
+                                <div><span className="font-medium">Local Government:</span> {addressInfo.permanentLocalGovernment}</div>
+                                <div><span className="font-medium">Ward:</span> {addressInfo.permanentWardNumber}</div>
+                                <div><span className="font-medium">Tole:</span> {addressInfo.permanentTole}</div>
+                                <div><span className="font-medium">Postal Code:</span> {addressInfo.permanentPostalCode}</div>
+                            </div>
+                        </div>
+                        {/* Temporary Address */}
+                        <div>
+                            <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                <MapPin className="h-4 w-4" />
+                                Temporary Address
+                            </h3>
+                            <div className="space-y-2 text-sm">
+                                <div><span className="font-medium">State:</span> {addressInfo.tempState}</div>
+                                <div><span className="font-medium">City:</span> {addressInfo.tempCity}</div>
+                                <div><span className="font-medium">Local Government:</span> {addressInfo.tempLocalGovernment}</div>
+                                <div><span className="font-medium">Ward:</span> {addressInfo.tempWardNumber}</div>
+                                <div><span className="font-medium">Tole:</span> {addressInfo.tempTole}</div>
+                                <div><span className="font-medium">Postal Code:</span> {addressInfo.tempPostalCode}</div>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
-            {/* Address Info */}
-            <Card className="p-6">
-                <div className="font-bold text-lg mb-2">Address Information</div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>Country: {addressInfo.country}</div>
-                    <div>Permanent State: {addressInfo.permanentState}</div>
-                    <div>Permanent City: {addressInfo.permanentCity}</div>
-                    <div>Permanent Local Government: {addressInfo.permanentLocalGovernment}</div>
-                    <div>Permanent Ward: {addressInfo.permanentWardNumber}</div>
-                    <div>Permanent Tole: {addressInfo.permanentTole}</div>
-                    <div>Permanent Postal Code: {addressInfo.permanentPostalCode}</div>
-                    <div>Temporary State: {addressInfo.tempState}</div>
-                    <div>Temporary City: {addressInfo.tempCity}</div>
-                    <div>Temporary Local Government: {addressInfo.tempLocalGovernment}</div>
-                    <div>Temporary Ward: {addressInfo.tempWardNumber}</div>
-                    <div>Temporary Tole: {addressInfo.tempTole}</div>
-                    <div>Temporary Postal Code: {addressInfo.tempPostalCode}</div>
-                </div>
-            </Card>
-            {/* Account Status */}
-            <Card className="p-6">
-                <div className="font-bold text-lg mb-2">Account Status</div>
-                <div>Status: <Badge>{accountStatus.status}</Badge></div>
-                <div>Active: <Badge variant={accountStatus.isActive ? "default" : "destructive"}>{accountStatus.isActive ? "Yes" : "No"}</Badge></div>
-                {accountStatus.graduatedDate && <div>Graduated Date: {accountStatus.graduatedDate}</div>}
-                {accountStatus.leaveReason && <div>Leave Reason: {accountStatus.leaveReason}</div>}
-            </Card>
-            {/* Account Created/Updated Info */}
-            <Card className="p-6">
-                <div className="font-bold text-lg mb-2">Account Created/Updated Info</div>
-                <div>Created At: {accountCreatedUpdatedInfo.createdAt?.slice(0, 10)}</div>
-                <div>Created By: {accountCreatedUpdatedInfo.createdBy?.fullName}</div>
-                {accountCreatedUpdatedInfo.updatedAt && <div>Updated At: {accountCreatedUpdatedInfo.updatedAt?.slice(0, 10)}</div>}
-                {accountCreatedUpdatedInfo.updatedBy && <div>Updated By: {accountCreatedUpdatedInfo.updatedBy?.fullName}</div>}
-            </Card>
+
             {/* User Documents */}
             {userDocumentInfo?.length > 0 && (
-                <Card className="p-6">
-                    <div className="font-bold text-lg mb-2">User Documents</div>
-                    <div className="flex gap-4 flex-wrap">
-                        {userDocumentInfo.map((doc: any) => (
-                            <div key={doc.id} className="flex flex-col items-center">
-                                <img src={doc.document ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${doc.document}` : undefined} alt={doc.type} className="h-24 w-24 object-cover rounded" />
-                                <div className="mt-2 text-sm">{doc.type}</div>
-                                <div className="text-xs text-muted-foreground">Created: {doc.createdAt?.slice(0, 10)}</div>
-                            </div>
-                        ))}
-                    </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FileText className="h-5 w-5" />
+                            User Documents
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            {userDocumentInfo.map((doc: any) => (
+                                <DocumentCard key={doc.id} doc={doc} />
+                            ))}
+                        </div>
+                    </CardContent>
                 </Card>
             )}
-            {/* Enrollment Info */}
-            {enrollmentInfo?.length > 0 && (
-                <Card className="p-6">
-                    <div className="font-bold text-lg mb-2">Active Enrollment</div>
-                    <div className="space-y-2">
-                        {enrollmentInfo.map((enroll: any) => (
-                            <div key={enroll.id} className="border rounded p-4">
-                                <div className="font-semibold">{enroll.class?.className} - {enroll.section?.sectionName} ({enroll.department?.departmentName})</div>
-                                <div>Enrollment Date: {enroll.enrollmentDate?.slice(0, 10)}</div>
-                                <div>Total Fees: {enroll.totalFees}</div>
-                                <div>Discount: {enroll.discount} {enroll.discountType}</div>
-                                <div>Net Fees: {enroll.netFees}</div>
-                                <div>Remarks: {enroll.remarks}</div>
-                                <div className="text-xs text-muted-foreground">Created By: {enroll.createdBy?.fullName} on {enroll.createdAt?.slice(0, 10)}</div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
-            )}
+
             {/* Inactive Enrollment Info */}
             {inactiveEnrollmentInfo?.length > 0 && (
-                <Card className="p-6">
-                    <div className="font-bold text-lg mb-2">Inactive Enrollment</div>
-                    <div className="space-y-2">
-                        {inactiveEnrollmentInfo.map((enroll: any) => (
-                            <div key={enroll.id} className="border rounded p-4 bg-muted">
-                                <div className="font-semibold">{enroll.class?.className} - {enroll.section?.sectionName} ({enroll.department?.departmentName})</div>
-                                <div>Enrollment Date: {enroll.enrollmentDate?.slice(0, 10)}</div>
-                                <div>Total Fees: {enroll.totalFees}</div>
-                                <div>Discount: {enroll.discount} {enroll.discountType}</div>
-                                <div>Net Fees: {enroll.netFees}</div>
-                                <div>Remarks: {enroll.remarks}</div>
-                                <div className="text-xs text-muted-foreground">Created By: {enroll.createdBy?.fullName} on {enroll.createdAt?.slice(0, 10)}</div>
-                            </div>
-                        ))}
-                    </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <XCircle className="h-5 w-5" />
+                            Inactive Enrollments
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {inactiveEnrollmentInfo.map((enroll: any) => (
+                                <div key={enroll.id} className="border rounded-lg p-4 bg-gray-50 border-gray-200">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                                                <Building className="h-4 w-4" />
+                                                {enroll.class?.className} - {enroll.section?.sectionName}
+                                            </h3>
+                                            <p className="text-muted-foreground">{enroll.department?.departmentName}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                <span className="font-medium">Enrollment:</span>
+                                                <span>{enroll.enrollmentDate?.slice(0, 10)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Total Fees:</span>
+                                                <Badge variant="outline">{enroll.totalFees}</Badge>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Discount:</span>
+                                                <span>{enroll.discount} {enroll.discountType}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Net Fees:</span>
+                                                <Badge variant="secondary">{enroll.netFees}</Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {enroll.remarks && (
+                                        <div className="mt-3 p-3 bg-white rounded border">
+                                            <span className="font-medium">Remarks:</span> {enroll.remarks}
+                                        </div>
+                                    )}
+                                    <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+                                        <User className="h-3 w-3" />
+                                        Created by: {enroll.createdBy?.fullName} on {enroll.createdAt?.slice(0, 10)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
                 </Card>
             )}
         </div>
