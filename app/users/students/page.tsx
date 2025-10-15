@@ -7,6 +7,8 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiHandler from "@/app/api/apiHandler";
+import {encryptNumber} from "@/utils/numberCrypto";
+import {useRouter} from "next/navigation";
 
 const PAGE_SIZE = 10;
 
@@ -17,6 +19,8 @@ export default function StudentPage() {
     const [error, setError] = useState("");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+
+    const router = useRouter();
 
     // Fetch students
     const fetchStudents = async (searchQuery = "", pageNum = 1) => {
@@ -127,7 +131,7 @@ export default function StudentPage() {
                                         <TableCell>{enrollment.className || "-"}</TableCell>
                                         <TableCell>{enrollment.sectionName || "-"}</TableCell>
                                         <TableCell>
-                                            <Button size="sm" variant="outline">View</Button>
+                                            <Button size="sm" variant="outline" onClick={() => router.push(`/users/students/${encryptNumber(student.userId)}`)}>View</Button>
                                         </TableCell>
                                     </TableRow>
                                 );
