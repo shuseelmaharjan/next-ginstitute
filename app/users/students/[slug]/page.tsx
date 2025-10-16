@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiHandler from "@/app/api/apiHandler";
 import { Badge } from "@/components/ui/badge";
+import { convertToBS, formatADDate } from "@/utils/dateUtils";
 import { 
     User, 
     Mail, 
@@ -24,6 +25,8 @@ import {
     Home,
     Building
 } from "lucide-react";
+import { toSentenceCase } from "@/utils/textUtils";
+import { formatDate } from "@/utils/formatDate";
 
 // Document Card Component
 function DocumentCard({ doc }: { doc: any }) {
@@ -104,29 +107,29 @@ export default function userSlugPage() {
     }
     const { personalInfo, guardianInfo, addressInfo, accountStatus, accountCreatedUpdatedInfo, userDocumentInfo, enrollmentInfo, inactiveEnrollmentInfo } = userData;
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
+            <div>
+                <h2 className="text-2xl font-bold">{personalInfo.name}</h2>
+                <p className="text-sm text-muted-foreground">{toSentenceCase(personalInfo.role)} | {toSentenceCase(personalInfo.sex)}</p>
+            </div>
             {/* First Row - Main Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Profile (Col 1) */}
                 <Card>
-                    <CardContent className="flex flex-col items-center p-6">
-                        <Avatar className="h-32 w-32 mb-4">
-                            <AvatarImage src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : undefined} alt={personalInfo.name} />
-                            <AvatarFallback className="text-2xl">{personalInfo.name?.[0] || "?"}</AvatarFallback>
-                        </Avatar>
-                        <h2 className="font-bold text-xl text-center">{personalInfo.name}</h2>
+                    <CardContent className="flex flex-col items-center p-2">
+                        <img src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : '/default-profile.png'} alt={personalInfo.name} className="h-36 w-32 object-cover rounded border shadow-sm mb-4" />
                     </CardContent>
                 </Card>
 
                 {/* Personal Details (Col 2) */}
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2">
                             <User className="h-5 w-5" />
                             Personal Information
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-3 pt-0">
                         <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">Username:</span>
@@ -140,17 +143,10 @@ export default function userSlugPage() {
                         <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">Date of Birth:</span>
-                            <span>{personalInfo.dateOfBirth}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">Sex:</span>
-                            <Badge variant="secondary">{personalInfo.sex}</Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">Role:</span>
-                            <Badge>{personalInfo.role}</Badge>
+                            <div className="flex flex-col">
+                                <span>{convertToBS(personalInfo.dateOfBirth) || 'N/A'}</span>
+                                <span className="italic">({formatADDate(personalInfo.dateOfBirth) || 'N/A'})</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -159,30 +155,30 @@ export default function userSlugPage() {
                 <div className="space-y-4">
                     {/* Account Status (Row 1 of Col 3) */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2">
                                 <UserCheck className="h-5 w-5" />
                                 Account Status
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="space-y-3 pt-0">
                             <div className="flex items-center gap-2">
-                                <span className="font-medium">Status:</span>
+                                <span className="font-medium">User:</span>
                                 <Badge variant={accountStatus.status === 'Enrolled' ? 'default' : 'secondary'}>
                                     {accountStatus.status}
                                 </Badge>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="font-medium">Active:</span>
+                                <span className="font-medium">Status:</span>
                                 {accountStatus.isActive ? (
                                     <Badge variant="default" className="flex items-center gap-1">
                                         <CheckCircle2 className="h-3 w-3" />
-                                        Yes
+                                        Active
                                     </Badge>
                                 ) : (
                                     <Badge variant="destructive" className="flex items-center gap-1">
                                         <XCircle className="h-3 w-3" />
-                                        No
+                                        Inactive
                                     </Badge>
                                 )}
                             </div>
@@ -204,18 +200,18 @@ export default function userSlugPage() {
 
                     {/* Account Create/Update Info (Row 2 of Col 3) */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2">
                                 <Clock className="h-5 w-5" />
                                 Account History
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="space-y-3 pt-0">
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-muted-foreground" />
                                     <span className="font-medium">Created:</span>
-                                    <span>{accountCreatedUpdatedInfo.createdAt?.slice(0, 10)}</span>
+                                    <span>{formatDate(accountCreatedUpdatedInfo.createdAt)}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <User className="h-4 w-4 text-muted-foreground" />
@@ -246,13 +242,13 @@ export default function userSlugPage() {
             {/* Active Enrollment - Full Width Row */}
             {enrollmentInfo?.length > 0 && (
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2">
                             <GraduationCap className="h-5 w-5" />
                             Active Enrollment
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                         <div className="space-y-4">
                             {enrollmentInfo.map((enroll: any) => (
                                 <div key={enroll.id} className="border rounded-lg p-4 bg-green-50 border-green-200">
@@ -304,13 +300,13 @@ export default function userSlugPage() {
 
             {/* Guardian Information */}
             <Card>
-                <CardHeader>
+                <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2">
                         <Users className="h-5 w-5" />
                         Guardian Information
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-3">
                             <div className="flex items-center gap-2">
@@ -370,13 +366,13 @@ export default function userSlugPage() {
 
             {/* Address Information */}
             <Card>
-                <CardHeader>
+                <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2">
                         <MapPin className="h-5 w-5" />
                         Address Information
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Permanent Address */}
                         <div>
@@ -416,13 +412,13 @@ export default function userSlugPage() {
             {/* User Documents */}
             {userDocumentInfo?.length > 0 && (
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2">
                             <FileText className="h-5 w-5" />
                             User Documents
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             {userDocumentInfo.map((doc: any) => (
                                 <DocumentCard key={doc.id} doc={doc} />
@@ -435,13 +431,13 @@ export default function userSlugPage() {
             {/* Inactive Enrollment Info */}
             {inactiveEnrollmentInfo?.length > 0 && (
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2">
                             <XCircle className="h-5 w-5" />
                             Inactive Enrollments
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                         <div className="space-y-4">
                             {inactiveEnrollmentInfo.map((enroll: any) => (
                                 <div key={enroll.id} className="border rounded-lg p-4 bg-gray-50 border-gray-200">
