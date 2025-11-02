@@ -6,6 +6,8 @@ import useAuthStore from "./authStore";
 
 const apiURL = config.BASE_URL;
 
+console.log("Requesting to API URL:", apiURL);
+
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface ApiHandlerParams {
