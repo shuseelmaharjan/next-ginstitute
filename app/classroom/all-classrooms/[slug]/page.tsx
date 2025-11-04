@@ -313,14 +313,6 @@ export default function ClassroomSlugPage() {
         </Table>
       </div>
 
-      {/* Students Count */}
-      {!loading && (
-        <div className="mb-4 text-sm text-gray-600 mt-4">
-          Showing {paginatedStudents.length} of {totalStudents} students
-          {totalPages > 1 && ` (Page ${page} of ${totalPages})`}
-        </div>
-      )}
-
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">

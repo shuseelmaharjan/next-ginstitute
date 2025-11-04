@@ -42,6 +42,7 @@
     "react-ad-bs-calendar": "^0.0.41",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
+    "react-medium-image-zoom": "^5.4.0",
     "react-responsive-modal": "^7.1.0",
     "recharts": "^3.2.1",
     "tailwind-merge": "^3.3.1",

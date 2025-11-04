@@ -3,7 +3,6 @@ import { useParams } from "next/navigation";
 import {decryptNumber} from "@/utils/numberCrypto";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiHandler from "@/app/api/apiHandler";
 import { Badge } from "@/components/ui/badge";
@@ -23,10 +22,36 @@ import {
     XCircle,
     Phone,
     Home,
-    Building
+    Building,
+    MoreHorizontal,
+    Edit
 } from "lucide-react";
 import { toSentenceCase } from "@/utils/textUtils";
 import { formatDate } from "@/utils/formatDate";
+import { 
+    ImageZoom, 
+    ImageZoomTrigger, 
+    ImageZoomContent, 
+    ImageZoomImage 
+} from "@/components/ui/image-zoom";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/hooks/use-toast";
 
 // Document Card Component
 function DocumentCard({ doc }: { doc: any }) {
@@ -35,27 +60,52 @@ function DocumentCard({ doc }: { doc: any }) {
     
     return (
         <div className="flex flex-col items-center space-y-2">
-            <div className="relative group">
+            <div className="relative">
                 {imageUrl && !imageError ? (
-                    <img 
-                        src={imageUrl}
-                        alt={doc.type} 
-                        className="h-24 w-24 object-cover rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
-                        onError={() => {
-                            console.error('Image failed to load:', imageUrl);
-                            setImageError(true);
-                        }}
-                    />
+                    <ImageZoom>
+                        <ImageZoomTrigger>
+                            <img 
+                                src={imageUrl}
+                                alt={doc.type} 
+                                className="h-24 w-24 object-cover rounded-lg border shadow-sm hover:shadow-md transition-shadow" 
+                                onError={() => {
+                                    console.error('Image failed to load:', imageUrl);
+                                    setImageError(true);
+                                }}
+                            />
+                        </ImageZoomTrigger>
+                        <ImageZoomContent title={`${toSentenceCase(doc.type)} Document`}>
+                            <div className="flex flex-col items-center space-y-4">
+                                <ImageZoomImage
+                                    src={imageUrl}
+                                    alt={`${doc.type} - Full Size`}
+                                />
+                                <div className="text-center text-white">
+                                    <Badge variant="secondary" className="text-sm mb-2">
+                                        {toSentenceCase(doc.type)}
+                                    </Badge>
+                                    <div className="text-sm text-gray-300 flex items-center gap-2 justify-center">
+                                        <Calendar className="h-4 w-4" />
+                                        Uploaded: {doc.createdAt?.slice(0, 10)}
+                                    </div>
+                                    {doc.createdBy && (
+                                        <div className="text-xs text-gray-400 mt-1">
+                                            By: {typeof doc.createdBy === 'string' ? doc.createdBy : doc.createdBy?.fullName || 'N/A'}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </ImageZoomContent>
+                    </ImageZoom>
                 ) : (
                     <div className="h-24 w-24 bg-gray-100 rounded-lg border shadow-sm flex items-center justify-center">
                         <FileText className="h-8 w-8 text-gray-400" />
                     </div>
                 )}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg"></div>
             </div>
             <div className="text-center">
                 <Badge variant="outline" className="text-xs">
-                    {doc.type}
+                    {toSentenceCase(doc.type)}
                 </Badge>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -73,6 +123,25 @@ export default function userSlugPage() {
     const [userData, setUserData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+    const [updateForm, setUpdateForm] = useState({
+        email: "",
+        dob: ""
+    });
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [isGuardianUpdateModalOpen, setIsGuardianUpdateModalOpen] = useState(false);
+    const [guardianUpdateForm, setGuardianUpdateForm] = useState({
+        fatherName: "",
+        motherName: "",
+        grandfatherName: "",
+        grandmotherName: "",
+        guardianName: "",
+        guardianContact: "",
+        fatherNumber: "",
+        motherNumber: "",
+        emergencyContact: ""
+    });
+    const [isUpdatingGuardian, setIsUpdatingGuardian] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -96,6 +165,129 @@ export default function userSlugPage() {
         if (userId) fetchData();
     }, [userId]);
 
+    const handleUpdateInfo = async () => {
+        if (!updateForm.email && !updateForm.dob) {
+            toast({
+                title: "Error",
+                description: "Please fill at least one field",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            const updateData: any = {};
+            if (updateForm.email) updateData.email = updateForm.email;
+            if (updateForm.dob) updateData.dob = updateForm.dob;
+
+            const res = await apiHandler({
+                url: `/api/v1/update-email-or-dob/${userId}`,
+                method: "PUT",
+                data: updateData
+            });
+
+            if (res.success) {
+                toast({
+                    title: "Success",
+                    description: "Information updated successfully",
+                    variant: "success",
+                });
+                setIsUpdateModalOpen(false);
+                setUpdateForm({ email: "", dob: "" });
+                // Refresh the user data
+                if (userId) {
+                    const refreshRes = await apiHandler({
+                        url: `/api/v1/users/${userId}/all-information`,
+                        method: "GET"
+                    });
+                    if (refreshRes.success) {
+                        setUserData(refreshRes.data);
+                    }
+                }
+            } else {
+                toast({
+                    title: "Error",
+                    description: res.message || "Failed to update information",
+                    variant: "destructive",
+                });
+            }
+        } catch (err) {
+            toast({
+                title: "Error",
+                description: "Failed to update information",
+                variant: "destructive",
+            });
+        }
+        setIsUpdating(false);
+    };
+
+    const openUpdateModal = () => {
+        setUpdateForm({
+            email: personalInfo?.email || "",
+            dob: personalInfo?.dateOfBirth || ""
+        });
+        setIsUpdateModalOpen(true);
+    };
+
+    const handleUpdateGuardianInfo = async () => {
+        setIsUpdatingGuardian(true);
+        try {
+            const res = await apiHandler({
+                url: `/api/v1/users/update-guardian-info/${userId}`,
+                method: "PUT",
+                data: guardianUpdateForm
+            });
+
+            if (res.success) {
+                toast({
+                    title: "Success",
+                    description: "Guardian information updated successfully",
+                    variant: "success",
+                });
+                setIsGuardianUpdateModalOpen(false);
+                // Refresh the user data
+                if (userId) {
+                    const refreshRes = await apiHandler({
+                        url: `/api/v1/users/${userId}/all-information`,
+                        method: "GET"
+                    });
+                    if (refreshRes.success) {
+                        setUserData(refreshRes.data);
+                    }
+                }
+            } else {
+                toast({
+                    title: "Error",
+                    description: res.message || "Failed to update guardian information",
+                    variant: "destructive",
+                });
+            }
+        } catch (err) {
+            toast({
+                title: "Error",
+                description: "Failed to update guardian information",
+                variant: "destructive",
+            });
+        }
+        setIsUpdatingGuardian(false);
+    };
+
+    const openGuardianUpdateModal = () => {
+        setGuardianUpdateForm({
+            fatherName: guardianInfo?.fatherName || "",
+            motherName: guardianInfo?.motherName || "",
+            grandfatherName: guardianInfo?.grandfatherName || "",
+            grandmotherName: guardianInfo?.grandmotherName || "",
+            guardianName: guardianInfo?.guardianName || "",
+            guardianContact: guardianInfo?.guardianContact || "",
+            fatherNumber: guardianInfo?.fatherNumber || "",
+            motherNumber: guardianInfo?.motherNumber || "",
+            emergencyContact: guardianInfo?.emergencyContact || ""
+        });
+        setIsGuardianUpdateModalOpen(true);
+    };
+
     if (loading) {
         return <Skeleton className="h-32 w-full" />;
     }
@@ -117,17 +309,62 @@ export default function userSlugPage() {
                 {/* Profile (Col 1) */}
                 <Card>
                     <CardContent className="flex flex-col items-center p-2">
-                        <img src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : '/default-profile.png'} alt={personalInfo.name} className="h-36 w-32 object-cover rounded border shadow-sm mb-4" />
+                        <ImageZoom>
+                            <ImageZoomTrigger>
+                                <img 
+                                    src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : '/default-profile.png'} 
+                                    alt={personalInfo.name} 
+                                    className="h-72 w-56 object-cover rounded border shadow-sm mb-4" 
+                                />
+                            </ImageZoomTrigger>
+                            <ImageZoomContent title={`Profile Photo - ${personalInfo.name}`}>
+                                <div className="flex flex-col items-center space-y-4">
+                                    <ImageZoomImage
+                                        src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : '/default-profile.png'}
+                                        alt={`${personalInfo.name} - Profile Photo`}
+                                    />
+                                    <div className="text-center text-white">
+                                        <h3 className="text-xl font-semibold mb-2">{personalInfo.name}</h3>
+                                        <div className="text-sm text-gray-300 space-y-1">
+                                            <div className="flex items-center gap-2 justify-center">
+                                                <User className="h-4 w-4" />
+                                                {personalInfo.username}
+                                            </div>
+                                            <div className="flex items-center gap-2 justify-center">
+                                                <Shield className="h-4 w-4" />
+                                                {toSentenceCase(personalInfo.role)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ImageZoomContent>
+                        </ImageZoom>
                     </CardContent>
                 </Card>
 
                 {/* Personal Details (Col 2) */}
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2">
-                            <User className="h-5 w-5" />
-                            Personal Information
+                        <CardTitle className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <User className="h-5 w-5" />
+                                Personal Information
+                            </div>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={openUpdateModal}>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Update Info
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </CardTitle>
+
                     </CardHeader>
                     <CardContent className="space-y-3 pt-0">
                         <div className="flex items-center gap-2">
@@ -216,7 +453,7 @@ export default function userSlugPage() {
                                 <div className="flex items-center gap-2">
                                     <User className="h-4 w-4 text-muted-foreground" />
                                     <span className="font-medium">Created By:</span>
-                                    <span className="text-sm">{accountCreatedUpdatedInfo.createdBy?.fullName}</span>
+                                    <span className="text-sm">{accountCreatedUpdatedInfo.createdBy?.fullName || accountCreatedUpdatedInfo.createdBy || 'N/A'}</span>
                                 </div>
                             </div>
                             {accountCreatedUpdatedInfo.updatedAt && (
@@ -230,7 +467,7 @@ export default function userSlugPage() {
                                         <div className="flex items-center gap-2">
                                             <User className="h-4 w-4 text-muted-foreground" />
                                             <span className="font-medium">Updated By:</span>
-                                            <span className="text-sm">{accountCreatedUpdatedInfo.updatedBy?.fullName}</span>
+                                            <span className="text-sm">{accountCreatedUpdatedInfo.updatedBy?.fullName || accountCreatedUpdatedInfo.updatedBy || 'N/A'}</span>
                                         </div>
                                     )}
                                 </div>
@@ -289,7 +526,7 @@ export default function userSlugPage() {
                                     )}
                                     <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
                                         <User className="h-3 w-3" />
-                                        Created by: {enroll.createdBy?.fullName} on {enroll.createdAt?.slice(0, 10)}
+                                        Created by: {enroll.createdBy?.fullName || enroll.createdBy || 'N/A'} on {enroll.createdAt?.slice(0, 10)}
                                     </div>
                                 </div>
                             ))}
@@ -301,9 +538,24 @@ export default function userSlugPage() {
             {/* Guardian Information */}
             <Card>
                 <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Guardian Information
+                    <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            Guardian Information
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={openGuardianUpdateModal}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Update Info
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -357,7 +609,7 @@ export default function userSlugPage() {
                             <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-red-500" />
                                 <span className="font-medium">Emergency Contact:</span>
-                                <Badge variant="destructive">{guardianInfo.emergencyContact}</Badge>
+                                <span className="text-sm text-red-500 font-semibold">{guardianInfo.emergencyContact}</span>
                             </div>
                         </div>
                     </div>
@@ -478,7 +730,7 @@ export default function userSlugPage() {
                                     )}
                                     <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
                                         <User className="h-3 w-3" />
-                                        Created by: {enroll.createdBy?.fullName} on {enroll.createdAt?.slice(0, 10)}
+                                        Created by: {enroll.createdBy?.fullName || enroll.createdBy || 'N/A'} on {enroll.createdAt?.slice(0, 10)}
                                     </div>
                                 </div>
                             ))}
@@ -486,6 +738,193 @@ export default function userSlugPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Update Information Modal */}
+            <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Update Personal Information</DialogTitle>
+                        <DialogDescription>
+                            Update email address or date of birth. You can update either field or both.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="email" className="text-right">
+                                Email
+                            </Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={updateForm.email}
+                                onChange={(e) => setUpdateForm(prev => ({ ...prev, email: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Enter new email"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="dob" className="text-right">
+                                Date of Birth
+                            </Label>
+                            <Input
+                                id="dob"
+                                type="date"
+                                value={updateForm.dob}
+                                onChange={(e) => setUpdateForm(prev => ({ ...prev, dob: e.target.value }))}
+                                className="col-span-3"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsUpdateModalOpen(false)}
+                            disabled={isUpdating}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleUpdateInfo}
+                            disabled={isUpdating}
+                        >
+                            {isUpdating ? "Updating..." : "Update Info"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Update Guardian Information Modal */}
+            <Dialog open={isGuardianUpdateModalOpen} onOpenChange={setIsGuardianUpdateModalOpen}>
+                <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Update Guardian Information</DialogTitle>
+                        <DialogDescription>
+                            Update guardian and family information. All fields are required.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="fatherName">Father Name *</Label>
+                                <Input
+                                    id="fatherName"
+                                    type="text"
+                                    value={guardianUpdateForm.fatherName}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, fatherName: e.target.value }))}
+                                    placeholder="Enter father's name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="fatherNumber">Father Contact</Label>
+                                <Input
+                                    id="fatherNumber"
+                                    type="tel"
+                                    value={guardianUpdateForm.fatherNumber}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, fatherNumber: e.target.value }))}
+                                    placeholder="Enter father's contact"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="motherName">Mother Name *</Label>
+                                <Input
+                                    id="motherName"
+                                    type="text"
+                                    value={guardianUpdateForm.motherName}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, motherName: e.target.value }))}
+                                    placeholder="Enter mother's name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="motherNumber">Mother Contact</Label>
+                                <Input
+                                    id="motherNumber"
+                                    type="tel"
+                                    value={guardianUpdateForm.motherNumber}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, motherNumber: e.target.value }))}
+                                    placeholder="Enter mother's contact"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="grandfatherName">Grandfather Name *</Label>
+                                <Input
+                                    id="grandfatherName"
+                                    type="text"
+                                    value={guardianUpdateForm.grandfatherName}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, grandfatherName: e.target.value }))}
+                                    placeholder="Enter grandfather's name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="grandmotherName">Grandmother Name *</Label>
+                                <Input
+                                    id="grandmotherName"
+                                    type="text"
+                                    value={guardianUpdateForm.grandmotherName}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, grandmotherName: e.target.value }))}
+                                    placeholder="Enter grandmother's name"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="guardianName">Guardian Name *</Label>
+                                <Input
+                                    id="guardianName"
+                                    type="text"
+                                    value={guardianUpdateForm.guardianName}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, guardianName: e.target.value }))}
+                                    placeholder="Enter guardian's name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="guardianContact">Guardian Contact *</Label>
+                                <Input
+                                    id="guardianContact"
+                                    type="tel"
+                                    value={guardianUpdateForm.guardianContact}
+                                    onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, guardianContact: e.target.value }))}
+                                    placeholder="Enter guardian's contact"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="emergencyContact">Emergency Contact *</Label>
+                            <Input
+                                id="emergencyContact"
+                                type="tel"
+                                value={guardianUpdateForm.emergencyContact}
+                                onChange={(e) => setGuardianUpdateForm(prev => ({ ...prev, emergencyContact: e.target.value }))}
+                                placeholder="Enter emergency contact number"
+                                className="w-full"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsGuardianUpdateModalOpen(false)}
+                            disabled={isUpdatingGuardian}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleUpdateGuardianInfo}
+                            disabled={isUpdatingGuardian}
+                        >
+                            {isUpdatingGuardian ? "Updating..." : "Update Guardian Info"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            
         </div>
     );
 }
