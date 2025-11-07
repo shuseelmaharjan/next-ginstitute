@@ -6,7 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { updateUser, fetchFullUser } from '@/app/services/userService';
+import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import * as React from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuthenticate } from '@/app/context/AuthenticateContext';
 import { toast } from "@/components/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,6 +37,7 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [datePickerOpen, setDatePickerOpen] = useState(false);
 
     const role = user?.role;
     const canAdminEdit = role === 'admin' || role === 'superadmin';
@@ -350,23 +362,56 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
 
                                     <Label>Date of Birth</Label>
                                     <div className="relative mt-1">
-                                        <Input
-                                            type="date"
-                                            value={form.dateOfBirth || ''}
-                                            onChange={e => handleChange('dateOfBirth', e.target.value)}
-                                            className="hide-native-date pr-10"
-                                        />
-                                        <CalendarIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        {/* Use popover-style calendar to pick a date */}
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                readOnly
+                                                value={form.dateOfBirth || ''}
+                                                placeholder="Select date"
+                                                className="pr-10"
+                                            />
+                                            <div className="relative">
+                                                {/* Inline small calendar popover trigger */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDatePickerOpen(prev => !prev)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                                                    aria-label="Pick date"
+                                                >
+                                                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {datePickerOpen && (
+                                            <div className="mt-2 z-50">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={form.dateOfBirth ? new Date(form.dateOfBirth) : undefined}
+                                                    onSelect={(d) => {
+                                                        if (d) {
+                                                            const iso = (d as Date).toISOString().slice(0, 10);
+                                                            handleChange('dateOfBirth', iso);
+                                                        }
+                                                        setDatePickerOpen(false);
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className='space-y-2'>
 
                                     <Label>Sex</Label>
-                                    <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.sex} onChange={e => handleChange('sex', e.target.value)}>
-                                        <option value="male">Male</option>
-                                        <option value="female">Female</option>
-                                        <option value="other">Other</option>
-                                    </select>
+                                    <Select value={form.sex || ''} onValueChange={(v) => handleChange('sex', v)}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select sex" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="male">Male</SelectItem>
+                                            <SelectItem value="female">Female</SelectItem>
+                                            <SelectItem value="other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     {fieldErrors.sex && <p className="text-xs text-red-500 mt-1">{fieldErrors.sex}</p>}
                                 </div>
                             </div>
@@ -436,34 +481,46 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
                                         <div className='space-y-2'>
 
                                             <Label>Province</Label>
-                                            <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.permanentState} onChange={e => handleChange('permanentState', e.target.value)}>
-                                                <option value="">Select Province</option>
-                                                {provinces.map(p => (
-                                                    <option key={p} value={p}>{p}</option>
-                                                ))}
-                                            </select>
+                                            <Select value={form.permanentState || ''} onValueChange={(v) => handleChange('permanentState', v)}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select Province" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {provinces.map(p => (
+                                                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             {fieldErrors.permanentState && <p className="text-xs text-red-500 mt-1">{fieldErrors.permanentState}</p>}
                                         </div>
                                         <div className='space-y-2'>
 
                                             <Label>District</Label>
-                                            <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.permanentCity} onChange={e => handleChange('permanentCity', e.target.value)} disabled={!form.permanentState}>
-                                                <option value="">Select District</option>
-                                                {permDistricts.map(d => (
-                                                    <option key={d} value={d}>{d}</option>
-                                                ))}
-                                            </select>
+                                            <Select value={form.permanentCity || ''} onValueChange={(v) => handleChange('permanentCity', v)}>
+                                                <SelectTrigger className="w-full" disabled={!form.permanentState}>
+                                                    <SelectValue placeholder="Select District" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {permDistricts.map(d => (
+                                                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             {fieldErrors.permanentCity && <p className="text-xs text-red-500 mt-1">{fieldErrors.permanentCity}</p>}
                                         </div>
                                         <div className='space-y-2'>
 
                                             <Label>Metropolitician City / Municipality / Rural Municipality</Label>
-                                            <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.permanentLocalGovernment} onChange={e => handleChange('permanentLocalGovernment', e.target.value)} disabled={!form.permanentCity}>
-                                                <option value="">Select Municipality</option>
-                                                {permMunicipals.map(m => (
-                                                    <option key={m} value={m}>{m}</option>
-                                                ))}
-                                            </select>
+                                            <Select value={form.permanentLocalGovernment || ''} onValueChange={(v) => handleChange('permanentLocalGovernment', v)}>
+                                                <SelectTrigger className="w-full" disabled={!form.permanentCity}>
+                                                    <SelectValue placeholder="Select Municipality" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {permMunicipals.map(m => (
+                                                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             {fieldErrors.permanentLocalGovernment && <p className="text-xs text-red-500 mt-1">{fieldErrors.permanentLocalGovernment}</p>}
                                         </div>
                                         <div className='space-y-2'>
@@ -480,32 +537,44 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
                                 <div className='space-y-2'>
 
                                     <Label>Province</Label>
-                                    <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.tempState} onChange={e => handleChange('tempState', e.target.value)}>
-                                        <option value="">Select Province</option>
-                                        {provinces.map(p => (
-                                            <option key={p} value={p}>{p}</option>
-                                        ))}
-                                    </select>
+                                    <Select value={form.tempState || ''} onValueChange={(v) => handleChange('tempState', v)}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select Province" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {provinces.map(p => (
+                                                <SelectItem key={p} value={p}>{p}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className='space-y-2'>
 
                                     <Label>District</Label>
-                                    <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.tempCity} onChange={e => handleChange('tempCity', e.target.value)} disabled={!form.tempState}>
-                                        <option value="">Select District</option>
-                                        {tempDistricts.map(d => (
-                                            <option key={d} value={d}>{d}</option>
-                                        ))}
-                                    </select>
+                                    <Select value={form.tempCity || ''} onValueChange={(v) => handleChange('tempCity', v)}>
+                                        <SelectTrigger className="w-full" disabled={!form.tempState}>
+                                            <SelectValue placeholder="Select District" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {tempDistricts.map(d => (
+                                                <SelectItem key={d} value={d}>{d}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className='space-y-2'>
 
                                     <Label>Metropolitician City / Municipality / Rural Municipality</Label>
-                                    <select className="w-full border rounded-md h-9 px-2 text-sm" value={form.tempLocalGovernment} onChange={e => handleChange('tempLocalGovernment', e.target.value)} disabled={!form.tempCity}>
-                                        <option value="">Select Municipality</option>
-                                        {tempMunicipals.map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                    </select>
+                                    <Select value={form.tempLocalGovernment || ''} onValueChange={(v) => handleChange('tempLocalGovernment', v)}>
+                                        <SelectTrigger className="w-full" disabled={!form.tempCity}>
+                                            <SelectValue placeholder="Select Municipality" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {tempMunicipals.map(m => (
+                                                <SelectItem key={m} value={m}>{m}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className='space-y-2'>
                                     <Label>Ward Number</Label><Input value={form.tempWardNumber} onChange={e => handleChange('tempWardNumber', e.target.value)} /></div>

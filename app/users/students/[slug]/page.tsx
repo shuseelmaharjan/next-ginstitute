@@ -52,8 +52,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/hooks/use-toast";
+// Added shadcn Select components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Document Card Component
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function DocumentCard({ doc }: { doc: any }) {
     const [imageError, setImageError] = useState(false);
     const imageUrl = doc.document ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${doc.document}` : null;
@@ -116,11 +119,11 @@ function DocumentCard({ doc }: { doc: any }) {
     );
 }
 
-export default function userSlugPage() {
+export default function UserSlugPage() {
     const params = useParams();
     const slug = params?.slug;
     const userId = typeof slug === "string" ? decryptNumber(slug) : undefined;
-    const [userData, setUserData] = useState<any>(null);
+    const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -143,6 +146,130 @@ export default function userSlugPage() {
     });
     const [isUpdatingGuardian, setIsUpdatingGuardian] = useState(false);
 
+    // New state for Address Update Modal
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [addressForm, setAddressForm] = useState({
+        country: "Nepal",
+        permanentState: "",
+        permanentCity: "",
+        permanentLocalGovernment: "",
+        permanentWardNumber: "",
+        permanentTole: "",
+        permanentPostalCode: "",
+        tempState: "",
+        tempCity: "",
+        tempLocalGovernment: "",
+        tempWardNumber: "",
+        tempTole: "",
+        tempPostalCode: ""
+    });
+    // Chained selects data for provinces -> districts -> municipals
+    const [provinceOptions, setProvinceOptions] = useState<string[]>([]);
+    const [permDistrictOptions, setPermDistrictOptions] = useState<string[]>([]);
+    const [permMunicipalOptions, setPermMunicipalOptions] = useState<string[]>([]);
+    const [tempDistrictOptions, setTempDistrictOptions] = useState<string[]>([]);
+    const [tempMunicipalOptions, setTempMunicipalOptions] = useState<string[]>([]);
+
+    // track address update in-flight
+    const [isUpdatingAddress, setIsUpdatingAddress] = useState(false);
+
+    const loadJSON = async (path: string) => {
+        try {
+            const res = await fetch(path);
+            if (!res.ok) return [];
+            const json = await res.json();
+            // Some files may return { provinces: [...] } or { districts: [...] } or { municipals: [...] }
+            if (Array.isArray(json)) return json;
+            if (json.provinces) return json.provinces;
+            if (json.districts) return json.districts;
+            if (json.municipals) return json.municipals;
+            return [];
+        } catch (err) {
+            console.error("loadJSON error", err);
+            return [];
+        }
+    };
+
+    const slugify = (s: string) =>
+        s?.toLowerCase().replace(/'/g, "").replace(/\s+/g, "-");
+
+    // Load provinces once
+    useEffect(() => {
+        (async () => {
+            const p = await loadJSON('/data/provinces.json');
+            setProvinceOptions(p as string[]);
+        })();
+    }, []);
+
+    // Permanent: load districts when province changes
+    useEffect(() => {
+        (async () => {
+            const prov = addressForm.permanentState;
+            if (!prov) {
+                setPermDistrictOptions([]);
+                setPermMunicipalOptions([]);
+                return;
+            }
+            const ds = await loadJSON(`/data/districtsByProvince/${slugify(prov)}.json`);
+            setPermDistrictOptions(ds as string[]);
+            // If the current permanentCity is not in new districts, clear it
+            if (addressForm.permanentCity && !(ds as string[]).includes(addressForm.permanentCity)) {
+                setAddressForm(prev => ({ ...prev, permanentCity: '', permanentLocalGovernment: '' }));
+                setPermMunicipalOptions([]);
+            }
+        })();
+    }, [addressForm.permanentState, addressForm.permanentCity]);
+
+    // Permanent: load municipals when district(called city) changes
+    useEffect(() => {
+        (async () => {
+            const city = addressForm.permanentCity;
+            if (!city) {
+                setPermMunicipalOptions([]);
+                return;
+            }
+            const ms = await loadJSON(`/data/municipalsByDistrict/${slugify(city)}.json`);
+            setPermMunicipalOptions(ms as string[]);
+            if (addressForm.permanentLocalGovernment && !(ms as string[]).includes(addressForm.permanentLocalGovernment)) {
+                setAddressForm(prev => ({ ...prev, permanentLocalGovernment: '' }));
+            }
+        })();
+    }, [addressForm.permanentCity, addressForm.permanentLocalGovernment]);
+
+    // Temporary: districts when tempState changes
+    useEffect(() => {
+        (async () => {
+            const prov = addressForm.tempState;
+            if (!prov) {
+                setTempDistrictOptions([]);
+                setTempMunicipalOptions([]);
+                return;
+            }
+            const ds = await loadJSON(`/data/districtsByProvince/${slugify(prov)}.json`);
+            setTempDistrictOptions(ds as string[]);
+            if (addressForm.tempCity && !(ds as string[]).includes(addressForm.tempCity)) {
+                setAddressForm(prev => ({ ...prev, tempCity: '', tempLocalGovernment: '' }));
+                setTempMunicipalOptions([]);
+            }
+        })();
+    }, [addressForm.tempState, addressForm.tempCity]);
+
+    // Temporary: municipals when tempCity changes
+    useEffect(() => {
+        (async () => {
+            const city = addressForm.tempCity;
+            if (!city) {
+                setTempMunicipalOptions([]);
+                return;
+            }
+            const ms = await loadJSON(`/data/municipalsByDistrict/${slugify(city)}.json`);
+            setTempMunicipalOptions(ms as string[]);
+            if (addressForm.tempLocalGovernment && !(ms as string[]).includes(addressForm.tempLocalGovernment)) {
+                setAddressForm(prev => ({ ...prev, tempLocalGovernment: '' }));
+            }
+        })();
+    }, [addressForm.tempCity, addressForm.tempLocalGovernment]);
+
     useEffect(() => {
         async function fetchData() {
             setLoading(true);
@@ -158,6 +285,7 @@ export default function userSlugPage() {
                     setError(res.message || "Failed to fetch data");
                 }
             } catch (err) {
+                console.error(err);
                 setError("Failed to fetch data");
             }
             setLoading(false);
@@ -165,22 +293,27 @@ export default function userSlugPage() {
         if (userId) fetchData();
     }, [userId]);
 
+    // Utility: show a toast for each missing field label
+    const notifyMissing = (labels: string[]) => {
+        labels.forEach((label) =>
+            toast({ title: "Validation error", description: `${label} field is empty`, variant: "destructive" })
+        );
+    };
+
     const handleUpdateInfo = async () => {
-        if (!updateForm.email && !updateForm.dob) {
-            toast({
-                title: "Error",
-                description: "Please fill at least one field",
-                variant: "destructive",
-            });
+        // All fields are mandatory: Email, Date of Birth
+        const missing: string[] = [];
+        if (!updateForm.email?.trim()) missing.push("Email");
+        if (!updateForm.dob?.trim()) missing.push("Date of Birth");
+        if (missing.length) {
+            notifyMissing(missing);
             return;
         }
 
         setIsUpdating(true);
         try {
-            const updateData: any = {};
-            if (updateForm.email) updateData.email = updateForm.email;
-            if (updateForm.dob) updateData.dob = updateForm.dob;
-
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const updateData: any = { email: updateForm.email, dob: updateForm.dob };
             const res = await apiHandler({
                 url: `/api/v1/update-email-or-dob/${userId}`,
                 method: "PUT",
@@ -213,6 +346,7 @@ export default function userSlugPage() {
                 });
             }
         } catch (err) {
+            console.error(err);
             toast({
                 title: "Error",
                 description: "Failed to update information",
@@ -230,7 +364,62 @@ export default function userSlugPage() {
         setIsUpdateModalOpen(true);
     };
 
+    const openGuardianUpdateModal = () => {
+        setGuardianUpdateForm({
+            fatherName: guardianInfo?.fatherName || "",
+            motherName: guardianInfo?.motherName || "",
+            grandfatherName: guardianInfo?.grandfatherName || "",
+            grandmotherName: guardianInfo?.grandmotherName || "",
+            guardianName: guardianInfo?.guardianName || "",
+            guardianContact: guardianInfo?.guardianContact || "",
+            fatherNumber: guardianInfo?.fatherNumber || "",
+            motherNumber: guardianInfo?.motherNumber || "",
+            emergencyContact: guardianInfo?.emergencyContact || ""
+        });
+        setIsGuardianUpdateModalOpen(true);
+    };
+
+    // New: open address modal prefill
+    const openAddressModal = () => {
+        setAddressForm({
+            country: addressInfo?.country || "Nepal",
+            permanentState: addressInfo?.permanentState || "",
+            permanentCity: addressInfo?.permanentCity || "",
+            permanentLocalGovernment: addressInfo?.permanentLocalGovernment || "",
+            permanentWardNumber: addressInfo?.permanentWardNumber || "",
+            permanentTole: addressInfo?.permanentTole || "",
+            permanentPostalCode: addressInfo?.permanentPostalCode || "",
+            tempState: addressInfo?.tempState || "",
+            tempCity: addressInfo?.tempCity || "",
+            tempLocalGovernment: addressInfo?.tempLocalGovernment || "",
+            tempWardNumber: addressInfo?.tempWardNumber || "",
+            tempTole: addressInfo?.tempTole || "",
+            tempPostalCode: addressInfo?.tempPostalCode || ""
+        });
+        setIsAddressModalOpen(true);
+    };
+
     const handleUpdateGuardianInfo = async () => {
+        // All fields are mandatory in guardian form
+        const requiredLabelsByKey: Record<string, string> = {
+            fatherName: "Father Name",
+            fatherNumber: "Father Contact",
+            motherName: "Mother Name",
+            motherNumber: "Mother Contact",
+            grandfatherName: "Grandfather Name",
+            // grandmotherName is optional
+            guardianName: "Guardian Name",
+            guardianContact: "Guardian Contact",
+            emergencyContact: "Emergency Contact",
+        };
+        const missing: string[] = Object.entries(requiredLabelsByKey)
+            .filter(([key]) => !(guardianUpdateForm as Record<string, string>)[key]?.trim())
+            .map(([, label]) => label);
+        if (missing.length) {
+            notifyMissing(missing);
+            return;
+        }
+
         setIsUpdatingGuardian(true);
         try {
             const res = await apiHandler({
@@ -264,6 +453,7 @@ export default function userSlugPage() {
                 });
             }
         } catch (err) {
+            console.error(err);
             toast({
                 title: "Error",
                 description: "Failed to update guardian information",
@@ -273,19 +463,73 @@ export default function userSlugPage() {
         setIsUpdatingGuardian(false);
     };
 
-    const openGuardianUpdateModal = () => {
-        setGuardianUpdateForm({
-            fatherName: guardianInfo?.fatherName || "",
-            motherName: guardianInfo?.motherName || "",
-            grandfatherName: guardianInfo?.grandfatherName || "",
-            grandmotherName: guardianInfo?.grandmotherName || "",
-            guardianName: guardianInfo?.guardianName || "",
-            guardianContact: guardianInfo?.guardianContact || "",
-            fatherNumber: guardianInfo?.fatherNumber || "",
-            motherNumber: guardianInfo?.motherNumber || "",
-            emergencyContact: guardianInfo?.emergencyContact || ""
-        });
-        setIsGuardianUpdateModalOpen(true);
+    // New: handle update address info
+    const handleUpdateAddress = async () => {
+        // All fields are mandatory in address form
+        const labelsByKey: Record<keyof typeof addressForm, string> = {
+            country: "Country",
+            permanentState: "Permanent State",
+            permanentCity: "Permanent City",
+            permanentLocalGovernment: "Permanent Local Government",
+            permanentWardNumber: "Permanent Ward Number",
+            permanentTole: "Permanent Tole",
+            permanentPostalCode: "Permanent Postal Code",
+            tempState: "Temporary State",
+            tempCity: "Temporary City",
+            tempLocalGovernment: "Temporary Local Government",
+            tempWardNumber: "Temporary Ward Number",
+            tempTole: "Temporary Tole",
+            tempPostalCode: "Temporary Postal Code",
+        };
+        const missing: string[] = (Object.keys(labelsByKey) as Array<keyof typeof addressForm>)
+            .filter((key) => !addressForm[key]?.trim())
+            .map((key) => labelsByKey[key]);
+        if (missing.length) {
+            notifyMissing(missing);
+            return;
+        }
+
+        setIsUpdatingAddress(true);
+        try {
+            const res = await apiHandler({
+                url: `/api/v1/users/update-address-info/${userId}`,
+                method: "PUT",
+                data: addressForm
+            });
+
+            if (res.success) {
+                toast({
+                    title: "Success",
+                    description: "Address information updated successfully",
+                    variant: "success",
+                });
+                setIsAddressModalOpen(false);
+                // Refresh user data
+                if (userId) {
+                    const refreshRes = await apiHandler({
+                        url: `/api/v1/users/${userId}/all-information`,
+                        method: "GET"
+                    });
+                    if (refreshRes.success) {
+                        setUserData(refreshRes.data);
+                    }
+                }
+            } else {
+                toast({
+                    title: "Error",
+                    description: res.message || "Failed to update address information",
+                    variant: "destructive",
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            toast({
+                title: "Error",
+                description: "Failed to update address information",
+                variant: "destructive",
+            });
+        }
+        setIsUpdatingAddress(false);
     };
 
     if (loading) {
@@ -297,9 +541,20 @@ export default function userSlugPage() {
     if (!userData) {
         return <div>No user data found.</div>;
     }
-    const { personalInfo, guardianInfo, addressInfo, accountStatus, accountCreatedUpdatedInfo, userDocumentInfo, enrollmentInfo, inactiveEnrollmentInfo } = userData;
-    return (
-        <div className="space-y-4">
+    // Cast to any for convenient property access from API response
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ud: any = userData;
+    const { personalInfo, guardianInfo, addressInfo, accountStatus, accountCreatedUpdatedInfo, userDocumentInfo, enrollmentInfo, inactiveEnrollmentInfo } = ud;
+
+    // Create local lists (typed any) to avoid placing eslint-disable comments inside JSX
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enrollmentList: any[] = enrollmentInfo || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inactiveEnrollmentList: any[] = inactiveEnrollmentInfo || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userDocsList: any[] = userDocumentInfo || [];
+     return (
+         <div className="space-y-4">
             <div>
                 <h2 className="text-2xl font-bold">{personalInfo.name}</h2>
                 <p className="text-sm text-muted-foreground">{toSentenceCase(personalInfo.role)} | {toSentenceCase(personalInfo.sex)}</p>
@@ -487,7 +742,7 @@ export default function userSlugPage() {
                     </CardHeader>
                     <CardContent className="pt-0">
                         <div className="space-y-4">
-                            {enrollmentInfo.map((enroll: any) => (
+                            {enrollmentList.map((enroll) => (
                                 <div key={enroll.id} className="border rounded-lg p-4 bg-green-50 border-green-200">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
@@ -574,26 +829,8 @@ export default function userSlugPage() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">Mother:</span>
-                                <span>{guardianInfo.motherName}</span>
-                                {guardianInfo.motherNumber && (
-                                    <div className="flex items-center gap-1 ml-2">
-                                        <Phone className="h-3 w-3 text-muted-foreground" />
-                                        <span className="text-sm">{guardianInfo.motherNumber}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">Grandfather:</span>
                                 <span>{guardianInfo.grandfatherName}</span>
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">Grandmother:</span>
-                                <span>{guardianInfo.grandmotherName}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Shield className="h-4 w-4 text-muted-foreground" />
@@ -606,6 +843,27 @@ export default function userSlugPage() {
                                     </div>
                                 )}
                             </div>
+
+
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Mother:</span>
+                                <span>{guardianInfo.motherName}</span>
+                                {guardianInfo.motherNumber && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                        <Phone className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-sm">{guardianInfo.motherNumber}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Grandmother:</span>
+                                <span>{guardianInfo.grandmotherName ? guardianInfo.grandmotherName : 'N/A'}</span>
+                            </div>
+
                             <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-red-500" />
                                 <span className="font-medium">Emergency Contact:</span>
@@ -619,9 +877,24 @@ export default function userSlugPage() {
             {/* Address Information */}
             <Card>
                 <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                        <MapPin className="h-5 w-5" />
-                        Address Information
+                    <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="h-5 w-5" />
+                            Address Information
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={openAddressModal}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Update Info
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -672,7 +945,7 @@ export default function userSlugPage() {
                     </CardHeader>
                     <CardContent className="pt-0">
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            {userDocumentInfo.map((doc: any) => (
+                            {userDocsList.map((doc) => (
                                 <DocumentCard key={doc.id} doc={doc} />
                             ))}
                         </div>
@@ -691,8 +964,8 @@ export default function userSlugPage() {
                     </CardHeader>
                     <CardContent className="pt-0">
                         <div className="space-y-4">
-                            {inactiveEnrollmentInfo.map((enroll: any) => (
-                                <div key={enroll.id} className="border rounded-lg p-4 bg-gray-50 border-gray-200">
+                            {inactiveEnrollmentList.map((enroll) => (
+                                 <div key={enroll.id} className="border rounded-lg p-4 bg-gray-50 border-gray-200">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
                                             <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -799,7 +1072,7 @@ export default function userSlugPage() {
                     <DialogHeader>
                         <DialogTitle>Update Guardian Information</DialogTitle>
                         <DialogDescription>
-                            Update guardian and family information. All fields are required.
+                            Update guardian and family information. All fields are required, except Grandmother Name.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -815,7 +1088,7 @@ export default function userSlugPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="fatherNumber">Father Contact</Label>
+                                <Label htmlFor="fatherNumber">Father Contact *</Label>
                                 <Input
                                     id="fatherNumber"
                                     type="tel"
@@ -825,7 +1098,6 @@ export default function userSlugPage() {
                                 />
                             </div>
                         </div>
-                        
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="motherName">Mother Name *</Label>
@@ -838,7 +1110,7 @@ export default function userSlugPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="motherNumber">Mother Contact</Label>
+                                <Label htmlFor="motherNumber">Mother Contact *</Label>
                                 <Input
                                     id="motherNumber"
                                     type="tel"
@@ -861,7 +1133,7 @@ export default function userSlugPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="grandmotherName">Grandmother Name *</Label>
+                                <Label htmlFor="grandmotherName">Grandmother Name</Label>
                                 <Input
                                     id="grandmotherName"
                                     type="text"
@@ -924,7 +1196,176 @@ export default function userSlugPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            
+
+            {/* Update Address Modal */}
+            <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
+                <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Update Address Information</DialogTitle>
+                        <DialogDescription>
+                            Update permanent and temporary address.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 pb-4">
+                        <div className="hidden">
+                            <div className="space-y-2 w-full">
+                                <Label htmlFor="country">Country</Label>
+                                {/* Use shadcn Input (hidden group anyway) */}
+                                <Input id="country" value={addressForm.country} readOnly disabled className="bg-gray-50" />
+                            </div>
+                        </div>
+
+                        <h4 className="font-semibold">Permanent Address</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="permanentState">State (Province)</Label>
+                                <Select
+                                    value={addressForm.permanentState || undefined}
+                                    onValueChange={(value) =>
+                                        setAddressForm(prev => ({ ...prev, permanentState: value, permanentCity: '', permanentLocalGovernment: '' }))
+                                    }
+                                >
+                                    <SelectTrigger id="permanentState" className="w-full">
+                                        <SelectValue placeholder="Select province" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {provinceOptions.map((p) => (
+                                            <SelectItem key={p} value={p}>{p}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="permanentCity">City (District)</Label>
+                                <Select
+                                    value={addressForm.permanentCity || undefined}
+                                    onValueChange={(value) =>
+                                        setAddressForm(prev => ({ ...prev, permanentCity: value, permanentLocalGovernment: '' }))
+                                    }
+                                >
+                                    <SelectTrigger id="permanentCity" className="w-full" disabled={!permDistrictOptions.length}>
+                                        <SelectValue placeholder="Select district" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {permDistrictOptions.map((d) => (
+                                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="permanentLocalGovernment">Local Government (Municipal)</Label>
+                                <Select
+                                    value={addressForm.permanentLocalGovernment || undefined}
+                                    onValueChange={(value) => setAddressForm(prev => ({ ...prev, permanentLocalGovernment: value }))}
+                                >
+                                    <SelectTrigger id="permanentLocalGovernment" className="w-full" disabled={!permMunicipalOptions.length}>
+                                        <SelectValue placeholder="Select municipal" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {permMunicipalOptions.map((m) => (
+                                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="permanentWardNumber">Ward Number</Label>
+                                <Input id="permanentWardNumber" value={addressForm.permanentWardNumber} onChange={(e) => setAddressForm(prev => ({ ...prev, permanentWardNumber: e.target.value }))} />
+                            </div>
+                        </div>
+                        {/* Added: Permanent Tole & Postal Code */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="permanentTole">Tole</Label>
+                                <Input id="permanentTole" value={addressForm.permanentTole} onChange={(e) => setAddressForm(prev => ({ ...prev, permanentTole: e.target.value }))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="permanentPostalCode">Postal Code</Label>
+                                <Input id="permanentPostalCode" value={addressForm.permanentPostalCode} onChange={(e) => setAddressForm(prev => ({ ...prev, permanentPostalCode: e.target.value }))} />
+                            </div>
+                        </div>
+
+                        <h4 className="font-semibold">Temporary Address</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="tempState">State (Province)</Label>
+                                <Select
+                                    value={addressForm.tempState || undefined}
+                                    onValueChange={(value) => setAddressForm(prev => ({ ...prev, tempState: value, tempCity: '', tempLocalGovernment: '' }))
+                                    }
+                                >
+                                    <SelectTrigger id="tempState" className="w-full">
+                                        <SelectValue placeholder="Select province" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {provinceOptions.map((p) => (
+                                            <SelectItem key={p} value={p}>{p}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="tempCity">City (District)</Label>
+                                <Select
+                                    value={addressForm.tempCity || undefined}
+                                    onValueChange={(value) => setAddressForm(prev => ({ ...prev, tempCity: value, tempLocalGovernment: '' }))
+                                    }
+                                >
+                                    <SelectTrigger id="tempCity" className="w-full" disabled={!tempDistrictOptions.length}>
+                                        <SelectValue placeholder="Select district" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {tempDistrictOptions.map((d) => (
+                                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="tempLocalGovernment">Local Government (Municipal)</Label>
+                                <Select
+                                    value={addressForm.tempLocalGovernment || undefined}
+                                    onValueChange={(value) => setAddressForm(prev => ({ ...prev, tempLocalGovernment: value }))}
+                                >
+                                    <SelectTrigger id="tempLocalGovernment" className="w-full" disabled={!tempMunicipalOptions.length}>
+                                        <SelectValue placeholder="Select municipal" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {tempMunicipalOptions.map((m) => (
+                                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="tempWardNumber">Ward Number</Label>
+                                <Input id="tempWardNumber" value={addressForm.tempWardNumber} onChange={(e) => setAddressForm(prev => ({ ...prev, tempWardNumber: e.target.value }))} />
+                            </div>
+                        </div>
+                        {/* Added: Temporary Tole & Postal Code */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="tempTole">Tole</Label>
+                                <Input id="tempTole" value={addressForm.tempTole} onChange={(e) => setAddressForm(prev => ({ ...prev, tempTole: e.target.value }))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="tempPostalCode">Postal Code</Label>
+                                <Input id="tempPostalCode" value={addressForm.tempPostalCode} onChange={(e) => setAddressForm(prev => ({ ...prev, tempPostalCode: e.target.value }))} />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddressModalOpen(false)} disabled={isUpdatingAddress}>Cancel</Button>
+                        <Button onClick={handleUpdateAddress} disabled={isUpdatingAddress}>{isUpdatingAddress ? 'Updating...' : 'Update Address'}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
