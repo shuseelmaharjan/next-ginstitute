@@ -555,9 +555,17 @@ export default function UserSlugPage() {
     const userDocsList: any[] = userDocumentInfo || [];
      return (
          <div className="space-y-4">
-            <div>
-                <h2 className="text-2xl font-bold">{personalInfo.name}</h2>
-                <p className="text-sm text-muted-foreground">{toSentenceCase(personalInfo.role)} | {toSentenceCase(personalInfo.sex)}</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold">{personalInfo.name}</h2>
+                    <p className="text-sm text-muted-foreground">{toSentenceCase(personalInfo.role)} | {toSentenceCase(personalInfo.sex)}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant='default' size="sm" className="cursor-pointer">Canvas</Button>
+                    <Button variant='default' size="sm" className="cursor-pointer">Gallery</Button>
+                    <Button variant='default' size="sm" className="cursor-pointer">View Report</Button>
+                    <Button variant='default' size="sm" className="cursor-pointer">Pay Bill</Button>
+                </div>
             </div>
             {/* First Row - Main Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -735,10 +743,16 @@ export default function UserSlugPage() {
             {enrollmentInfo?.length > 0 && (
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2">
-                            <GraduationCap className="h-5 w-5" />
-                            Active Enrollment
+                        <CardTitle className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <GraduationCap className="h-5 w-5" />
+                                Active Enrollment
+                            </div>
+                            <div>
+                                <Button variant="default" size="sm" className="cursor-pointer">Upgrade</Button>
+                            </div>
                         </CardTitle>
+
                     </CardHeader>
                     <CardContent className="pt-0">
                         <div className="space-y-4">

@@ -35,10 +35,10 @@ const siteNav: SiteNavItem = {
 	icon: Globe,
 	defaultOpen: false,
 	items: [
-		{ title: "Banners", url: "/site/banners" },
+		{ title: "Banners", url: "/site/banner" },
 		{ title: "Testimonials", url: "/site/testimonials" },
 		{ title: "About Us", url: "/site/about" },
-        {title: "Principal Message", url: "/site/principal"},
+        {title: "Principal Message", url: "/site/principal-message"},
 		{ title: "Ads", url: "/site/ads" },
 		{ title: "Downloads", url: "/site/downloads" },
 		{ title: "Gallery", url: "/site/gallery" },

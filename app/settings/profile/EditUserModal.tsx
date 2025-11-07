@@ -9,12 +9,11 @@ import { updateUser, fetchFullUser } from '@/app/services/userService';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import * as React from 'react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -23,8 +22,41 @@ import { toast } from "@/components/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 
 interface EditUserModalProps {
-    onUpdated?: (data: any) => void;
+    onUpdated?: (data: Record<string, unknown>) => void;
 }
+
+// Define a narrow form shape (fields are strings or undefined)
+type UserForm = {
+    firstName?: string;
+    middleName?: string;
+    lastName?: string;
+    email?: string;
+    dateOfBirth?: string;
+    sex?: string;
+    fatherName?: string;
+    motherName?: string;
+    grandfatherName?: string;
+    grandmotherName?: string;
+    guardianName?: string;
+    guardianContact?: string;
+    fatherNumber?: string;
+    motherNumber?: string;
+    emergencyContact?: string;
+    country?: string;
+    permanentState?: string;
+    permanentCity?: string;
+    permanentLocalGovernment?: string;
+    permanentWardNumber?: string;
+    permanentTole?: string;
+    permanentPostalCode?: string;
+    tempState?: string;
+    tempCity?: string;
+    tempLocalGovernment?: string;
+    tempWardNumber?: string;
+    tempTole?: string;
+    tempPostalCode?: string;
+    [key: string]: string | undefined;
+};
 
 // Simple date input fallback; integrate shadcn calendar later if installed
 export function EditUserModal({ onUpdated }: EditUserModalProps) {
@@ -32,12 +64,15 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     const userId = user?.id;
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [initialData, setInitialData] = useState<any>(null);
-    const [form, setForm] = useState<any>({});
+    const [initialData, setInitialData] = useState<Record<string, unknown> | null>(null);
+    const [form, setForm] = useState<UserForm>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-    const [datePickerOpen, setDatePickerOpen] = useState(false);
+    // Dedicated state for date selection to avoid race conditions with popover open/close.
+    const [selectedDob, setSelectedDob] = useState<Date | undefined>(undefined);
+    // Controlled open state for DOB popover to stop it from closing on internal clicks
+    const [dobOpen, setDobOpen] = useState(false);
 
     const role = user?.role;
     const canAdminEdit = role === 'admin' || role === 'superadmin';
@@ -64,28 +99,29 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     const [tempMunicipals, setTempMunicipals] = useState<string[]>([]);
 
     // Simple cache to avoid refetching static JSON
-    const dataCache = (globalThis as any).__npDataCache || new Map<string, any>();
-    ; (globalThis as any).__npDataCache = dataCache;
+    const globalWithCache = globalThis as unknown as { __npDataCache?: Map<string, unknown> };
+    const dataCache = globalWithCache.__npDataCache ?? new Map<string, unknown>();
+    globalWithCache.__npDataCache = dataCache;
 
     const slugify = (s: string) =>
         s
             .toLowerCase()
             .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9\-]/g, '')
-            .replace(/\-+/g, '-');
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/-+/g, '-');
 
-    const loadJSON = async (path: string) => {
-        if (dataCache.has(path)) return dataCache.get(path);
-        try {
-            const res = await fetch(path, { cache: 'force-cache' });
-            if (!res.ok) return null;
-            const json = await res.json();
-            dataCache.set(path, json);
-            return json;
-        } catch {
-            return null;
-        }
-    };
+    const loadJSON = async (path: string): Promise<unknown | null> => {
+         if (dataCache.has(path)) return dataCache.get(path) ?? null;
+         try {
+             const res = await fetch(path, { cache: 'force-cache' });
+             if (!res.ok) return null;
+             const json = await res.json();
+             dataCache.set(path, json as unknown);
+             return json as unknown;
+         } catch {
+             return null;
+         }
+     };
 
     useEffect(() => {
         if (open && userId) {
@@ -95,7 +131,7 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
                 try {
                     const res = await fetchFullUser(userId);
                     if (res.success) {
-                        setInitialData(res.data);
+                        setInitialData(res.data as Record<string, unknown>);
                         setForm({
                             firstName: res.data.firstName || '',
                             middleName: res.data.middleName || '',
@@ -125,15 +161,16 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
                             tempWardNumber: res.data.tempWardNumber || '',
                             tempTole: res.data.tempTole || '',
                             tempPostalCode: res.data.tempPostalCode || ''
-                        });
+                        } as UserForm);
                     } else {
-                        const msg = res.message || 'Failed to load user';
+                        const msg = (res.message as string) || 'Failed to load user';
                         setError(msg);
                         toast({ title: 'Load Failed', description: msg, variant: 'destructive' });
                     }
-                } catch (e: any) {
-                    setError(e.message);
-                    toast({ title: 'Load Error', description: e.message, variant: 'destructive' });
+                } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    setError(msg);
+                    toast({ title: 'Load Error', description: msg, variant: 'destructive' });
                 } finally {
                     setLoading(false);
                 }
@@ -141,10 +178,10 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
         }
     }, [open, userId]);
 
-    const handleChange = (field: string, value: any) => {
+    const handleChange = (field: string, value: string) => {
         if (!isFieldEditable(field)) return; // ignore disallowed edits
-        setForm((prev: any) => {
-            const next = { ...prev, [field]: value } as any;
+        setForm((prev: UserForm) => {
+            const next: UserForm = { ...prev, [field]: value };
             // Clear dependent fields only on explicit user changes
             if (field === 'permanentState') {
                 next.permanentCity = '';
@@ -198,7 +235,8 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     useEffect(() => {
         if (!form.permanentState) { setPermDistricts([]); setPermMunicipals([]); return; }
         (async () => {
-            const districts = await loadJSON(`/data/districtsByProvince/${slugify(form.permanentState)}.json`);
+            const state = form.permanentState; if (!state) return;
+            const districts = await loadJSON(`/data/districtsByProvince/${slugify(state)}.json`);
             setPermDistricts(Array.isArray(districts) ? districts : []);
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,7 +246,8 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     useEffect(() => {
         if (!form.permanentCity) { setPermMunicipals([]); return; }
         (async () => {
-            const mun = await loadJSON(`/data/municipalsByDistrict/${slugify(form.permanentCity)}.json`);
+            const city = form.permanentCity; if (!city) return;
+            const mun = await loadJSON(`/data/municipalsByDistrict/${slugify(city)}.json`);
             setPermMunicipals(Array.isArray(mun) ? mun : []);
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,7 +257,8 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     useEffect(() => {
         if (!form.tempState) { setTempDistricts([]); setTempMunicipals([]); return; }
         (async () => {
-            const districts = await loadJSON(`/data/districtsByProvince/${slugify(form.tempState)}.json`);
+            const state = form.tempState; if (!state) return;
+            const districts = await loadJSON(`/data/districtsByProvince/${slugify(state)}.json`);
             setTempDistricts(Array.isArray(districts) ? districts : []);
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,7 +268,8 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
     useEffect(() => {
         if (!form.tempCity) { setTempMunicipals([]); return; }
         (async () => {
-            const mun = await loadJSON(`/data/municipalsByDistrict/${slugify(form.tempCity)}.json`);
+            const city = form.tempCity; if (!city) return;
+            const mun = await loadJSON(`/data/municipalsByDistrict/${slugify(city)}.json`);
             setTempMunicipals(Array.isArray(mun) ? mun : []);
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,7 +336,7 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
         setSuccess(null);
         try {
             // Filter payload to allowed fields only
-            const payload: any = {};
+            const payload: Record<string, string | undefined> = {};
             Object.keys(form).forEach(k => { if (isFieldEditable(k)) payload[k] = form[k]; });
             const res = await updateUser(userId, payload);
             if (res.success) {
@@ -308,9 +349,10 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
                 setError(res.message || 'Update failed');
                 toast({ title: 'Update failed', description: res.message || 'Server rejected update', variant: 'destructive' });
             }
-        } catch (e: any) {
-            setError(e.message);
-            toast({ title: 'Error', description: e.message, variant: 'destructive' });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setError(msg);
+            toast({ title: 'Error', description: msg, variant: 'destructive' });
         } finally {
             setLoading(false);
         }
@@ -362,41 +404,34 @@ export function EditUserModal({ onUpdated }: EditUserModalProps) {
 
                                     <Label>Date of Birth</Label>
                                     <div className="relative mt-1">
-                                        {/* Use popover-style calendar to pick a date */}
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                readOnly
-                                                value={form.dateOfBirth || ''}
-                                                placeholder="Select date"
-                                                className="pr-10"
-                                            />
-                                            <div className="relative">
-                                                {/* Inline small calendar popover trigger */}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDatePickerOpen(prev => !prev)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                                                    aria-label="Pick date"
-                                                >
-                                                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        {datePickerOpen && (
-                                            <div className="mt-2 z-50">
+                                        {/* Controlled popover: stays open on date selection; closes only on outside click or trigger toggle */}
+                                        <Popover open={dobOpen} onOpenChange={setDobOpen}>
+                                            <PopoverTrigger asChild>
+                                                <div className="relative">
+                                                    <Input
+                                                        readOnly
+                                                        value={selectedDob ? selectedDob.toISOString().slice(0, 10) : ''}
+                                                        placeholder="Select date"
+                                                        className="pr-10 cursor-pointer"
+                                                    />
+                                                    <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                                </div>
+                                            </PopoverTrigger>
+                                            <PopoverContent side="bottom" align="start" className="mt-2 z-50 p-0" onEscapeKeyDown={() => setDobOpen(false)}>
                                                 <Calendar
                                                     mode="single"
-                                                    selected={form.dateOfBirth ? new Date(form.dateOfBirth) : undefined}
-                                                    onSelect={(d) => {
-                                                        if (d) {
-                                                            const iso = (d as Date).toISOString().slice(0, 10);
+                                                    selected={selectedDob}
+                                                    onSelect={(date) => {
+                                                        if (date) {
+                                                            setSelectedDob(date);
+                                                            const iso = date.toISOString().slice(0, 10);
                                                             handleChange('dateOfBirth', iso);
+                                                            // Keep popover open; user can click outside or trigger to close
                                                         }
-                                                        setDatePickerOpen(false);
                                                     }}
                                                 />
-                                            </div>
-                                        )}
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 </div>
                                 <div className='space-y-2'>

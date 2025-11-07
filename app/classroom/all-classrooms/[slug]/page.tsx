@@ -187,13 +187,6 @@ export default function ClassroomSlugPage() {
               <h2 className="text-2xl font-bold tracking-tight">Classroom Students</h2>
                 <p>Manage all classrooms and sections here.</p>
           </div>
-        <div>
-          {selectedSection && selectedSection !== "all" && (
-            <p className="text-sm text-blue-600">
-              Filtered by: {availableSections.find(s => s.sectionId.toString() === selectedSection)?.sectionName}
-            </p>
-          )}
-        </div>
         </div>
         
         {/* Filter Button */}
