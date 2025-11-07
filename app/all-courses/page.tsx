@@ -188,7 +188,9 @@ export default function AllCoursesPage() {
       </div>
       <div className="border-1 p-4 rounded-md shadow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div>Loading...</div>
+            <div className="flex justify-center items-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
         ) : courses.length === 0 ? (
           <div>No courses found.</div>
         ) : (

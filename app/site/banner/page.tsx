@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/hooks/use-toast";
 import apiHandler from "../../api/apiHandler";
+import {formatDate} from "@/utils/formatDate";
 
 interface Banner {
   id: number;
@@ -50,6 +51,14 @@ interface Banner {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  createdByUser?: {
+    id: number;
+    fullName: string;
+  };
+  updatedByUser?: {
+    id: number;
+    fullName: string;
+  };
 }
 
 interface BannerFormData {
@@ -337,9 +346,27 @@ const BannerPage = () => {
     setEditModalOpen(true);
   };
 
-  const openViewModal = (banner: Banner) => {
-    setSelectedBanner(banner);
-    setViewModalOpen(true);
+  const openViewModal = async (banner: Banner) => {
+    try {
+      const response = await apiHandler({
+        method: 'GET',
+        url: `/api/v1/banners/${banner.id}`,
+        onError: (message) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: message,
+          });
+        }
+      });
+
+      if (response.data) {
+        setSelectedBanner(response.data);
+        setViewModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch banner details:', error);
+    }
   };
 
   const openDeleteModal = (banner: Banner) => {
@@ -349,14 +376,14 @@ const BannerPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Banner Management</h1>
           <p className="text-muted-foreground">Manage your website banners</p>
         </div>
         <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => { resetForm(); setCreateModalOpen(true); }}>
+            <Button onClick={() => { resetForm(); setCreateModalOpen(true); }} className="cursor-pointer">
               <Plus className="w-4 h-4 mr-2" />
               Add Banner
             </Button>
@@ -387,14 +414,16 @@ const BannerPage = () => {
                         description: error.message,
                       });
                     }}
-                    className="h-32"
+                    className="h-48 cursor-pointer"
                   >
                     {imagePreview ? (
                       <div className="w-full h-full">
-                        <img
+                        <Image
                           src={imagePreview}
                           alt="Preview"
                           className="w-full h-full object-cover rounded-lg"
+                          layout="fill"
+                          priority
                         />
                       </div>
                     ) : (
@@ -451,78 +480,69 @@ const BannerPage = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
+              <Button variant="outline" onClick={() => setCreateModalOpen(false)} className="cursor-pointer">
                 Cancel
               </Button>
-              <Button onClick={handleCreate}>
+              <Button onClick={handleCreate} className="cursor-pointer">
                 Create Banner
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-
+        <div className="border-1 p-4 rounded-md shadow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {loading ? (
         <div className="flex justify-center items-center h-32">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {banners.map((banner) => (
-            <Card key={banner.id} className="overflow-hidden">
+      ) : banners.length === 0 ? (
+
+          <div className="flex justify-center items-center h-32">
+            <p className="text-muted-foreground">No banners found. Click <strong>Add Banner</strong> to create one.</p>
+          </div>
+      ) : (banners.map((banner) => (
+            <Card key={banner.id} className="overflow-hidden py-0">
               <div className="relative h-48">
-                <img
+                <Image
                   src={banner.banner}
                   alt="Banner"
                   className="w-full h-full object-cover"
+                  layout="fill"
+                  priority
                 />
                 <div className="absolute top-2 right-2">
-                  <Badge variant={banner.isActive ? "default" : "secondary"}>
-                    {banner.isActive ? "Active" : "Inactive"}
-                  </Badge>
+                    <div className="flex space-x-1">
+                        <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => openViewModal(banner)}
+                            className="cursor-pointer  rounded-md border-none"
+                        >
+                            <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditModal(banner)}
+                            className="cursor-pointer  rounded-md border-none"
+                        >
+                            <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => openDeleteModal(banner)}
+                            className="cursor-pointer  rounded-md border-none"
+                        >
+                            <TrashIcon className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
               </div>
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  {banner.title && banner.titleText && (
-                    <h3 className="font-semibold truncate">{banner.titleText}</h3>
-                  )}
-                  {banner.subtitle && banner.subtitleText && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      {banner.subtitleText}
-                    </p>
-                  )}
-                  <div className="flex justify-between items-center pt-2">
-                    <div className="flex space-x-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openViewModal(banner)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEditModal(banner)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => openDeleteModal(banner)}
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
-          ))}
-        </div>
+          ))
       )}
+        </div>
 
       {/* View Modal */}
       <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
@@ -532,47 +552,50 @@ const BannerPage = () => {
           </DialogHeader>
           {selectedBanner && (
             <div className="space-y-4">
-              <img
+              <Image
                 src={selectedBanner.banner}
                 alt="Banner"
                 className="w-full h-64 object-cover rounded-lg"
+                width={800}
+                height={320}
+                priority
               />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Status</Label>
-                  <div className="text-sm">
-                    <Badge variant={selectedBanner.isActive ? "default" : "secondary"}>
-                      {selectedBanner.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <Label>Has Title</Label>
-                  <div className="text-sm">{selectedBanner.title ? "Yes" : "No"}</div>
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 {selectedBanner.title && selectedBanner.titleText && (
                   <div className="col-span-2">
                     <Label>Title Text</Label>
                     <div className="text-sm">{selectedBanner.titleText}</div>
                   </div>
                 )}
-                <div>
-                  <Label>Has Subtitle</Label>
-                  <div className="text-sm">{selectedBanner.subtitle ? "Yes" : "No"}</div>
-                </div>
                 {selectedBanner.subtitle && selectedBanner.subtitleText && (
                   <div className="col-span-2">
                     <Label>Subtitle Text</Label>
                     <div className="text-sm">{selectedBanner.subtitleText}</div>
                   </div>
                 )}
-                <div>
-                  <Label>Created</Label>
-                  <div className="text-sm">{new Date(selectedBanner.createdAt).toLocaleDateString()}</div>
-                </div>
-                <div>
-                  <Label>Updated</Label>
-                  <div className="text-sm">{new Date(selectedBanner.updatedAt).toLocaleDateString()}</div>
+                <div className='grid grid-cols-2 gap-4'>
+                    <div className="space-y-3">
+                        <div>
+                            <Label>Created At</Label>
+                            <div className="text-sm">{formatDate(selectedBanner.createdAt)}</div>
+                        </div>
+                        <div>
+                            <Label>Created By</Label>
+                            <div className="text-sm">{selectedBanner.createdByUser?.fullName || 'N/A'}</div>
+                        </div>
+                    </div>
+                    {selectedBanner.updatedByUser && (
+                      <div className="space-y-3">
+                        <div>
+                            <Label>Updated At</Label>
+                            <div className="text-sm">{formatDate(selectedBanner.updatedAt)}</div>
+                        </div>
+                        <div>
+                            <Label>Updated By</Label>
+                            <div className="text-sm">{selectedBanner.updatedByUser.fullName}</div>
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -612,18 +635,22 @@ const BannerPage = () => {
                 >
                   {imagePreview ? (
                     <div className="w-full h-full">
-                      <img
+                      <Image
                         src={imagePreview}
                         alt="Preview"
                         className="w-full h-full object-cover rounded-lg"
+                        layout="fill"
+                        priority
                       />
                     </div>
                   ) : selectedBanner ? (
                     <div className="w-full h-full">
-                      <img
+                      <Image
                         src={selectedBanner.banner}
                         alt="Current banner"
                         className="w-full h-full object-cover rounded-lg"
+                        layout="fill"
+                        priority
                       />
                     </div>
                   ) : (
@@ -680,10 +707,10 @@ const BannerPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)} className="cursor-pointer">
               Cancel
             </Button>
-            <Button onClick={handleEdit}>
+            <Button onClick={handleEdit} className="cursor-pointer">
               Update Banner
             </Button>
           </DialogFooter>
@@ -700,10 +727,10 @@ const BannerPage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 cursor-pointer"
             >
               Delete Permanently
             </AlertDialogAction>
@@ -715,3 +742,4 @@ const BannerPage = () => {
 };
 
 export default BannerPage;
+
