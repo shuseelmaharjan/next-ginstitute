@@ -89,6 +89,22 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
     immediatelyRender: false,
   });
 
+  // Sync external `value` changes into the editor after it's initialized.
+  // This ensures HTML loaded from the server appears in the editor.
+  useEffect(() => {
+    if (!editor) return;
+    try {
+      const current = editor.getHTML();
+      if ((value || '').trim() !== (current || '').trim()) {
+        editor.commands.setContent(value || '');
+      }
+    } catch (e) {
+      // ignore setContent errors
+      // eslint-disable-next-line no-console
+      console.error('Failed to set editor content', e);
+    }
+  }, [value, editor]);
+
   // Only render the editor UI after mount
   if (!mounted || !editor) return null;
 

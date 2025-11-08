@@ -1,13 +1,24 @@
 "use client";
 
-const UpdateAboutPage = () => {
-    return (
-        <div className="space-y-6 mt-4">
-            <h1 className="text-2xl font-bold">Update About Page</h1>
-            <p className="text-muted-foreground">
-                This is the update about page content.
-            </p>
-        </div>
-    );
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+export default function UpdateAboutRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to the list page — prefer using the route with id from the list
+    router.replace("/site/about");
+  }, [router]);
+
+  return (
+    <Card className="p-6 text-center">
+      <div>Redirecting to About list...</div>
+      <div className="mt-4">
+        <Button variant="outline" onClick={() => router.push("/site/about")}>Go to About</Button>
+      </div>
+    </Card>
+  );
 }
-export default UpdateAboutPage;
