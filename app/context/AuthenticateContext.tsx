@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useCallback, useState, useEffect, useMemo } from "react";
 import Cookies from "js-cookie";
+import axios from "axios";
+import config from "../config";
 
 type User = {
   id: number;
@@ -10,6 +12,15 @@ type User = {
   name: string;
   role: string;
   isActive: boolean;
+};
+
+type WhoIsMeServerUser = Partial<User> & { id?: number } | null;
+
+type WhoIsMeResponse = {
+  success: boolean;
+  session: boolean;
+  message?: string;
+  data?: WhoIsMeServerUser | null;
 };
 
 type AuthenticateContextType = {
@@ -36,7 +47,8 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  // Helper to check for session cookie
+
+  // Helper to check for session cookie (kept for cleanup/fallback)
   const hasSession = useCallback(() => typeof window !== 'undefined' && Cookies.get('session') === 'true', []);
 
   // Clear authentication
@@ -51,6 +63,7 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
       Cookies.remove("session");
     }
   }, []);
+
   const readUserFromCookie = useCallback((): User | null => {
     try {
       const userData = Cookies.get("_ud");
@@ -61,36 +74,88 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
 
-  const refreshUser = useCallback(() => {
-    if (!hasSession()) {
-      clearAuth();
-      return;
-    }
-    const cookieUser = readUserFromCookie();
-    if (cookieUser) {
-      setUser(cookieUser);
-      setIsAuthenticated(true);
-    } else {
-      // If no user cookie but session exists, leave as unauthenticated until next successful refresh elsewhere
-      setUser(null);
-      setIsAuthenticated(false);
-    }
-  }, [hasSession, readUserFromCookie, clearAuth]);
+  // Call server to get current session/user
+  const fetchWhoIsMe = useCallback(async (): Promise<WhoIsMeResponse> => {
+    try {
+      // Build URL from config.BASE_URL (fall back to relative path if not set)
+      const base = (config?.BASE_URL || "").replace(/\/$/, "");
+      const url = base ? `${base}/api/auth/v1/who-is-me` : `/api/auth/v1/who-is-me`;
 
-  // Initialize auth state
+      const response = await axios.get<WhoIsMeResponse>(url, {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const body: WhoIsMeResponse = response.data;
+
+      // expected shapes:
+      // { success: true, session: false, message: 'No active session found' }
+      // { success: true, session: true, message: 'Active session found', data: { ...user } }
+
+      if (body && body.success && body.session && body.data) {
+        const data = body.data as WhoIsMeServerUser;
+        // Ensure types align - use safe type checks and defaults
+        const serverUser: User = {
+          id: typeof data?.id === 'number' ? data.id : 0,
+          username: typeof data?.username === 'string' ? data.username : '',
+          email: typeof data?.email === 'string' ? data.email : '',
+          name: typeof data?.name === 'string' ? data.name : '',
+          role: typeof data?.role === 'string' ? data.role : '',
+          isActive: typeof data?.isActive === 'boolean' ? data.isActive : true,
+        };
+        setUser(serverUser);
+        setIsAuthenticated(true);
+        setError(null);
+        // Mirror into cookie for quick reads elsewhere
+        try {
+          if (typeof window !== 'undefined') {
+            Cookies.set('_ud', btoa(JSON.stringify(serverUser)), { sameSite: 'lax' });
+          }
+        } catch {
+          // ignore cookie set failures
+        }
+        return body;
+      }
+
+      // session false
+      clearAuth();
+      return body;
+    } catch (err: unknown) {
+      console.error('who-is-me failed', err);
+      setError('Failed to validate session');
+      // If request fails but cookie exists, attempt to read cookie as fallback
+      if (hasSession()) {
+        const cookieUser = readUserFromCookie();
+        if (cookieUser) {
+          setUser(cookieUser);
+          setIsAuthenticated(true);
+          return { success: true, session: true, data: cookieUser };
+        }
+      }
+      clearAuth();
+      return { success: false, session: false };
+    }
+  }, [clearAuth, hasSession, readUserFromCookie]);
+
+  const refreshUser = useCallback(() => {
+    // Make a server call to refresh
+    (async () => {
+      setLoading(true);
+      await fetchWhoIsMe();
+      setLoading(false);
+    })();
+  }, [fetchWhoIsMe]);
+
+  // Initialize auth state - call server who-is-me once on mount
   useEffect(() => {
     const initializeAuth = async () => {
       if (initialized) return;
-      
+
       setLoading(true);
       setError(null);
 
       try {
-        if (!hasSession()) {
-          clearAuth();
-        } else {
-          refreshUser();
-        }
+        await fetchWhoIsMe();
       } catch (error) {
         console.error('Failed to initialize auth:', error);
         setError('Failed to initialize authentication');
@@ -102,7 +167,7 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
 
     initializeAuth();
-  }, [initialized, hasSession, refreshUser, clearAuth]);
+  }, [initialized, fetchWhoIsMe, clearAuth]);
 
   // Memoize context value
   const contextValue = useMemo(() => ({

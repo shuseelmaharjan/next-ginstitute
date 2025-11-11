@@ -3,6 +3,7 @@
 import axios, { AxiosRequestConfig } from "axios";
 import config from "../config";
 import useAuthStore from "./authStore";
+import Cookies from "js-cookie";
 
 const apiURL = config.BASE_URL;
 
@@ -11,7 +12,7 @@ console.log("Requesting to API URL:", apiURL);
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface ApiHandlerParams {
-  data?: any;
+  data?: unknown;
   url: string;
   method: HttpMethod;
   onWarning?: (message: string) => void;
@@ -63,18 +64,18 @@ const fetchNewAccessToken = async (): Promise<string | null> => {
 const sendApiRequest = async <T>(
   method: HttpMethod,
   url: string,
-  data: any,
-  token: string
+  data?: unknown,
+  token?: string | null
 ): Promise<T> => {
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(data instanceof FormData ? {} : { "Content-Type": "application/json" }),
   };
 
   const axiosConfig: AxiosRequestConfig = {
     method,
     url: apiURL + url,
-    data,
+    data: data as any,
     headers,
     withCredentials: true,
   };
@@ -83,10 +84,25 @@ const sendApiRequest = async <T>(
   return response.data;
 };
 
+// Helper to safely extract accessToken from various response shapes without using `any`
+const extractTokenFromResponse = (res: unknown): string | undefined => {
+  if (!res || typeof res !== 'object') return undefined;
+  const r = res as Record<string, unknown>;
+  const data = r['data'];
+  if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>;
+    const at = d['accessToken'];
+    if (typeof at === 'string') return at;
+  }
+  const atRoot = r['accessToken'];
+  if (typeof atRoot === 'string') return atRoot;
+  return undefined;
+};
+
 /**
  * Main API handler
  */
-export default async function apiHandler<T = any>({
+export default async function apiHandler<T = unknown>({
   data,
   url,
   method,
@@ -97,8 +113,35 @@ export default async function apiHandler<T = any>({
   let token = accessToken;
 
   try {
-    // 1️⃣ No token in state? Try from localStorage
+    // 1️⃣ Prefer token from cookie (as requested)
+    if (typeof window !== "undefined") {
+      const cookieToken = Cookies.get("accessToken");
+      if (cookieToken) {
+        token = cookieToken;
+        // keep auth store in sync
+        setAccessToken(cookieToken);
+      }
+    }
+
+    // 2️⃣ If no token available, call API without Authorization header.
     if (!token) {
+      const response = await sendApiRequest<T>(method, url, data, undefined);
+
+      // If server provided an accessToken in response body, persist it to store/localStorage
+      const possibleToken = extractTokenFromResponse(response);
+      if (possibleToken) {
+        try {
+          localStorage.setItem("accessToken", possibleToken);
+        } catch {}
+        setAccessToken(possibleToken);
+      }
+
+      return response;
+    }
+
+    // 3️⃣ If token exists, proceed with Authorization header
+    // 1️⃣ No token in state? Try from localStorage (legacy fallback)
+    if (!accessToken && typeof window !== "undefined") {
       const storedToken = localStorage.getItem("accessToken");
       if (storedToken) {
         setAccessToken(storedToken);
@@ -106,16 +149,10 @@ export default async function apiHandler<T = any>({
       }
     }
 
-    // 2️⃣ Still no token? Try to fetch a new one
-    if (!token) {
-      token = await fetchNewAccessToken();
-      if (!token) throw new Error("Unable to retrieve access token.");
-    }
-
-    // 3️⃣ Proceed with request
+    // 4️⃣ Proceed with request using token
     const response = await sendApiRequest<T>(method, url, data, token);
 
-    // 4️⃣ If session expired response → refresh and retry
+    // 5️⃣ If session expired response → refresh and retry
     const responseObj = response as unknown as { success?: boolean; message?: string };
     if (
       responseObj.success === false &&
@@ -129,13 +166,23 @@ export default async function apiHandler<T = any>({
 
     return response;
 
-  } catch (error: any) {
-    // Extract backend error message if available
+  } catch (error: unknown) {
+    // Extract backend error message if available without using `any`
     let message = "Unexpected error occurred";
-    if (error?.response?.data?.message) {
-      message = error.response.data.message;
-    } else if (error?.message) {
-      message = error.message;
+    if (typeof error === 'object' && error !== null) {
+      const e = error as Record<string, unknown>;
+      const resp = e['response'];
+      if (resp && typeof resp === 'object') {
+        const respObj = resp as Record<string, unknown>;
+        const respData = respObj['data'];
+        if (respData && typeof respData === 'object') {
+          const rd = respData as Record<string, unknown>;
+          const m = rd['message'];
+          if (typeof m === 'string') message = m;
+        }
+      }
+      const m2 = e['message'];
+      if (typeof m2 === 'string') message = m2;
     }
 
     if (message === REFRESH_ERROR_MESSAGE) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, memo, useState } from "react";
+import { useEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthenticate } from "./AuthenticateContext";
 
@@ -11,29 +11,16 @@ type Props = {
 const PrivateRoute = memo(function PrivateRoute({ children }: Props) {
   const { isAuthenticated, loading } = useAuthenticate();
   const router = useRouter();
-  const [hasSessionCookie, setHasSessionCookie] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Check for 'session' cookie first
-    const getCookie = (name: string) => {
-      if (typeof document === 'undefined') return null;
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop()?.split(';').shift();
-      return null;
-    };
-    setHasSessionCookie(getCookie('session') === 'true');
-  }, []);
-
-  useEffect(() => {
-    // Only redirect if we're not loading and not authenticated and no session cookie
-    if (hasSessionCookie === false && !loading && !isAuthenticated) {
-      router.replace("/login");
+    // When auth finished loading and user is not authenticated, redirect to login
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [hasSessionCookie, loading, isAuthenticated, router]);
+  }, [loading, isAuthenticated, router]);
 
-  // Show loading only if we're still initializing authentication
-  if (loading || hasSessionCookie === null) {
+  // Show loading while authenticate context initializes
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-lg">
         <div className="flex flex-col items-center gap-4">
@@ -44,10 +31,8 @@ const PrivateRoute = memo(function PrivateRoute({ children }: Props) {
     );
   }
 
-  // If not authenticated and no session cookie, don't render children (redirect will happen in useEffect)
-  if (!isAuthenticated && !hasSessionCookie) {
-    return null;
-  }
+  // If not authenticated after loading, don't render children (redirect happening in useEffect)
+  if (!isAuthenticated) return null;
 
   return <>{children}</>;
 });

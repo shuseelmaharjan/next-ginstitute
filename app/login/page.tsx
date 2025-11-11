@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Cookies from "js-cookie";
 import apiClient from "../api/apiClient";
-import { Toaster } from "@/components/ui/toast";
 
 
 export default function LoginPage() {
@@ -54,7 +53,7 @@ export default function LoginPage() {
                 if (res.data.accessToken) {
                     localStorage.setItem("accessToken", res.data.accessToken);
                 }
-                router.push("/");
+                router.push("/dashboard");
                 // Reload the page after route push
                 setTimeout(() => {
                     window.location.reload();
@@ -62,8 +61,14 @@ export default function LoginPage() {
             } else {
                 setErrorMsg(res.message || "Login failed");
             }
-        } catch (err: any) {
-            setErrorMsg(err.message || "An unexpected error occurred");
+        } catch (err: unknown) {
+            // Safely extract message from unknown
+            let msg = "An unexpected error occurred";
+            if (typeof err === 'object' && err !== null) {
+                const e = err as Record<string, unknown>;
+                if (typeof e['message'] === 'string') msg = e['message'] as string;
+            }
+            setErrorMsg(msg);
         }
     };
 
