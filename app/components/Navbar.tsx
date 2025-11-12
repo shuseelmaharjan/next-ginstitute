@@ -32,7 +32,6 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
 import apiHandler from "../api/apiHandler";
 import { useAuthenticate } from "../context/AuthenticateContext";
 
@@ -53,27 +52,34 @@ const NAV_LINKS: NavLink[] = [
 
 function Navbar() {
   // Use the hook inside the component!
-  const { isAuthenticated, loading: isLoading, clearAuth } = useAuthenticate();
+  const { isAuthenticated, loading: isLoading, clearAuth, user } = useAuthenticate();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const encryptedData = Cookies.get("_ud");
-
-  const decryptData = (data: string) => {
-    try {
-      return JSON.parse(atob(data));
-    } catch (error) {
-      console.error("Failed to decrypt data:", error);
-      return null;
-    }
-  };
-  const userData = encryptedData ? decryptData(encryptedData) : null;
-
-  const username =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem("username") || userData?.username || null
-      : userData?.username || null;
   const router = useRouter();
+
+  // Get user data from sessionStorage after component mounts
+  useEffect(() => {
+    setIsMounted(true);
+    const getUserFromSession = () => {
+      try {
+        const userData = sessionStorage.getItem("user");
+        if (!userData) return null;
+        const parsedUser = JSON.parse(userData);
+        // Ensure we have a valid user object with username
+        return (parsedUser && typeof parsedUser === 'object' && parsedUser.username) ? parsedUser : null;
+      } catch (_error) {
+        console.error("Failed to parse user data:", _error);
+        return null;
+      }
+    };
+    setSessionUser(getUserFromSession());
+  }, []);
+
+  // Extract username from either context user or sessionStorage user
+  const username = user?.username || sessionUser?.username || null;
 
   // Logout function
   const handleLogout = async () => {
@@ -87,7 +93,7 @@ function Navbar() {
       clearAuth();
       router.push("/login");
       window.location.reload();
-    } catch (error) {
+    } catch {
       clearAuth();
       router.push("/login");
       window.location.reload();
@@ -126,7 +132,7 @@ function Navbar() {
         <div className="bg-primary-color py-1 h-auto">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center text-white px-4 gap-y-2 md:gap-y-0">
             {/* Left Side: Contact Info */}
-            <div className="hidden md:flex items-center space-x-6 text-sm">
+            <div className="hidden md:flex items-center space-x-6 text-sm py-2">
               <span className="flex items-center">
                 <FaPhone className="h-4 w-4 mr-2" />
                 <a href="tel:+97701-5108166" className="hover:underline">01-5108166</a>,
@@ -140,24 +146,10 @@ function Navbar() {
 
             {/* Right Side: Buttons and Menu */}
             <div className="flex items-center gap-2">
-              {/* Apply Button - Only show when not authenticated */}
-              {!isAuthenticated && (
-                <Link href="/apply">
-                  <Button
-                    size="sm"
-                    className="group bg-orange-400 text-white hover:bg-orange-500 font-semibold px-3 py-1 rounded inline-flex items-center transition-all duration-200 cursor-pointer"
-                  >
-                    <span className="hidden sm:inline">Apply Online</span>
-                    <span className="sm:hidden">Apply Online</span>
-                    <FaArrowRight className="ml-1 transition-transform duration-200 group-hover:translate-x-1" />
-                  </Button>
-                </Link>
-              )}
-
-              {/* Login / Dropdown */}
+                {/* Login / Dropdown */}
               {isLoading ? (
                 <></>
-              ) : isAuthenticated && username ? (
+              ) : isMounted && (isAuthenticated || sessionUser) && username ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -218,7 +210,7 @@ function Navbar() {
                     </DropdownMenuGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              ) : (
+              ) : isMounted && (
                 <Link href="/login">
                   <Button
                     size="sm"
@@ -358,7 +350,7 @@ function Navbar() {
                       }}
                     >
 
-                      {!isAuthenticated || !username ? (
+                      {isMounted && ((!isAuthenticated && !sessionUser) || !username) ? (
                         <Link href="/apply" className="w-full">
                           <motion.button
                             whileHover={{ scale: 1.02, y: -2 }}
@@ -383,7 +375,7 @@ function Navbar() {
                         ease: "easeOut"
                       }}
                     >
-                      {isAuthenticated && username ? (
+                      {isMounted && (isAuthenticated || sessionUser) && username ? (
                         <>
                           <Link href="/dashboard" className="w-full">
                             <motion.button
@@ -409,7 +401,7 @@ function Navbar() {
                     </motion.div>
 
                     {/* Logout button for mobile when authenticated */}
-                    {isAuthenticated && username && (
+                    {isMounted && ((isAuthenticated || sessionUser) && username) && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect, memo, useMemo } from "react"
+import { memo, useMemo, useState, useEffect } from "react"
 import { NavMain } from "./nav-main"
 import { NavUser } from "./nav-user"
 import { NavOthers } from "./nav-others"
@@ -14,10 +14,19 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { useAuthenticate } from "../context/AuthenticateContext"
-import Cookies from "js-cookie"
 import NavCourses from "./nav-courses"
 import NavSite from "./nav-site"
 import NavBilling from "./nav-billing"
+
+interface SessionUserData {
+  id: number
+  username: string
+  email: string
+  name: string
+  role: string
+  isActive: boolean
+  profilePicture?: string
+}
 
 // Function to generate initials from name
 const generateInitials = (name: string): string => {
@@ -39,48 +48,37 @@ const generateInitials = (name: string): string => {
 
 export const AppSidebar = memo(function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, loading, error } = useAuthenticate();
+  const [sessionUser, setSessionUser] = useState<SessionUserData | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const encryptedData = Cookies.get("_ud");
-
-  const decryptData = (data: string) => {
-    try {
-      return JSON.parse(atob(data));
-    } catch (error) {
-      console.error("Failed to decrypt data:", error);
-      return null;
-    }
-  };
+  // Get user data from sessionStorage after component mounts
+  useEffect(() => {
+    setIsMounted(true);
+    const getUserFromSession = () => {
+      try {
+        const userData = sessionStorage.getItem("user");
+        if (!userData) return null;
+        const parsedUser = JSON.parse(userData);
+        return (parsedUser && typeof parsedUser === 'object') ? parsedUser : null;
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+        return null;
+      }
+    };
+    setSessionUser(getUserFromSession());
+  }, []);
 
   // Create user data object for NavUser component - memoized to prevent recreation
   const userData = useMemo(() => {
-    let profile = null;
-    if (encryptedData) {
-      profile = decryptData(encryptedData);
-    }
+    // Use data from either AuthenticateContext or sessionStorage
+    const currentUser = user || sessionUser;
 
-    if (profile && profile.name && profile.email && profile.role) {
-      const initials = generateInitials(profile.name);
+    if (currentUser && currentUser.name && currentUser.email && currentUser.role) {
+      const initials = generateInitials(currentUser.name);
       return {
-        name: profile.name,
-        email: profile.email,
-        role: profile.role,
-        avatar: `data:image/svg+xml;base64,${btoa(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="20" fill="#0962c6"/>
-            <text x="50%" y="50%" text-anchor="middle" dy="0.3em" fill="white" font-family="Arial" font-size="14" font-weight="bold">
-              ${initials}
-            </text>
-          </svg>
-        `)}`,
-      };
-    }
-
-    if (user) {
-      const initials = generateInitials(user.name);
-      return {
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        name: currentUser.name,
+        email: currentUser.email,
+        role: currentUser.role,
         avatar: `data:image/svg+xml;base64,${btoa(`
           <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
             <circle cx="20" cy="20" r="20" fill="#0962c6"/>
@@ -98,8 +96,12 @@ export const AppSidebar = memo(function AppSidebar({ ...props }: React.Component
       avatar: "",
       role: "Member",
     };
-  }, [encryptedData, user]);
-  
+  }, [user, sessionUser]);
+
+  // Don't render until mounted to prevent hydration issues
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <Sidebar collapsible="icon" {...props}>

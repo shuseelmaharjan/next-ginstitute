@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useCallback, useState, useEffect, useMemo } from "react";
-import Cookies from "js-cookie";
+// Using sessionStorage for storing the user record (no cookies/encryption)
 import axios from "axios";
 import config from "../config";
 
@@ -12,6 +12,7 @@ type User = {
   name: string;
   role: string;
   isActive: boolean;
+  profilePicture?: string;
 };
 
 type WhoIsMeServerUser = Partial<User> & { id?: number } | null;
@@ -48,8 +49,16 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  // Helper to check for session cookie (kept for cleanup/fallback)
-  const hasSession = useCallback(() => typeof window !== 'undefined' && Cookies.get('session') === 'true', []);
+  // Helper to check for sessionStorage user (used for fallback)
+  // consider either a stored user or an explicit 'session' flag
+  const hasSession = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return !!(sessionStorage.getItem('user') || sessionStorage.getItem('session'));
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Clear authentication
   const clearAuth = useCallback(() => {
@@ -57,18 +66,18 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setIsAuthenticated(false);
     setError(null);
     if (typeof window !== "undefined") {
-      sessionStorage.removeItem("username");
-      localStorage.removeItem("accessToken");
-      Cookies.remove("_ud");
-      Cookies.remove("session");
+      sessionStorage.removeItem("user");
+      // remove session flag when clearing auth
+      try { sessionStorage.removeItem("session"); } catch {}
     }
   }, []);
 
-  const readUserFromCookie = useCallback((): User | null => {
+  const readUserFromSession = useCallback((): User | null => {
     try {
-      const userData = Cookies.get("_ud");
-      if (!userData) return null;
-      return JSON.parse(atob(userData));
+      if (typeof window === 'undefined') return null;
+      const raw = sessionStorage.getItem('user');
+      if (!raw) return null;
+      return JSON.parse(raw) as User;
     } catch {
       return null;
     }
@@ -88,11 +97,7 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       const body: WhoIsMeResponse = response.data;
 
-      // expected shapes:
-      // { success: true, session: false, message: 'No active session found' }
-      // { success: true, session: true, message: 'Active session found', data: { ...user } }
-
-      if (body && body.success && body.session && body.data) {
+       if (body && body.success && body.session && body.data) {
         const data = body.data as WhoIsMeServerUser;
         // Ensure types align - use safe type checks and defaults
         const serverUser: User = {
@@ -102,17 +107,22 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
           name: typeof data?.name === 'string' ? data.name : '',
           role: typeof data?.role === 'string' ? data.role : '',
           isActive: typeof data?.isActive === 'boolean' ? data.isActive : true,
+          profilePicture: typeof data?.profilePicture === 'string' ? data.profilePicture : undefined,
         };
         setUser(serverUser);
         setIsAuthenticated(true);
         setError(null);
-        // Mirror into cookie for quick reads elsewhere
+        // Replace any existing sessionStorage 'user' record with the fresh server-provided user
         try {
           if (typeof window !== 'undefined') {
-            Cookies.set('_ud', btoa(JSON.stringify(serverUser)), { sameSite: 'lax' });
+            // remove first as requested, then set
+            sessionStorage.removeItem('user');
+            sessionStorage.setItem('user', JSON.stringify(serverUser));
+            // mark that a valid session exists (string 'true') so other code can quickly check
+            try { sessionStorage.setItem('session', 'true'); } catch {}
           }
         } catch {
-          // ignore cookie set failures
+          // ignore sessionStorage failures
         }
         return body;
       }
@@ -125,25 +135,27 @@ export const AuthenticateProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setError('Failed to validate session');
       // If request fails but cookie exists, attempt to read cookie as fallback
       if (hasSession()) {
-        const cookieUser = readUserFromCookie();
-        if (cookieUser) {
-          setUser(cookieUser);
+        const storedUser = readUserFromSession();
+        if (storedUser) {
+          setUser(storedUser);
           setIsAuthenticated(true);
-          return { success: true, session: true, data: cookieUser };
+          // If we restored user from sessionStorage, also ensure session flag is set
+          if (typeof window !== 'undefined') {
+            try { sessionStorage.setItem('session', 'true'); } catch {}
+          }
+          return { success: true, session: true, data: storedUser };
         }
       }
       clearAuth();
       return { success: false, session: false };
     }
-  }, [clearAuth, hasSession, readUserFromCookie]);
+  }, [clearAuth, hasSession, readUserFromSession]);
 
-  const refreshUser = useCallback(() => {
+  const refreshUser = useCallback(async () => {
     // Make a server call to refresh
-    (async () => {
-      setLoading(true);
-      await fetchWhoIsMe();
-      setLoading(false);
-    })();
+    setLoading(true);
+    await fetchWhoIsMe();
+    setLoading(false);
   }, [fetchWhoIsMe]);
 
   // Initialize auth state - call server who-is-me once on mount

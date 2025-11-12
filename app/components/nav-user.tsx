@@ -1,6 +1,5 @@
 "use client"
 
-import Cookies from "js-cookie"
 import config from "@/app/config"
 import {
   BadgeCheck,
@@ -32,24 +31,17 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import apiHandler from "@/app/api/apiHandler";
 import { useRouter } from "next/navigation";
 import { useAuthenticate } from "@/app/context/AuthenticateContext";
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useState, useEffect } from "react"
 import Link from "next/link"
 
-interface CookieUserData {
-  name?: string
-  email?: string
-  role?: string
+interface SessionUserData {
+  id: number
+  username: string
+  email: string
+  name: string
+  role: string
+  isActive: boolean
   profilePicture?: string
-  [k: string]: any
-}
-
-const decryptData = (data: string) => {
-  try {
-    return JSON.parse(atob(data))
-  } catch (e) {
-    console.error("Failed to decrypt data", e)
-    return null
-  }
 }
 
 function buildImageSrc(path?: string | null) {
@@ -62,17 +54,33 @@ function buildImageSrc(path?: string | null) {
 export function NavUser() {
   const { isMobile } = useSidebar();
   const router = useRouter();
-  const { clearAuth } = useAuthenticate();
+  const { clearAuth, user } = useAuthenticate();
+  const [sessionUser, setSessionUser] = useState<SessionUserData | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const cookieUser: CookieUserData | null = useMemo(() => {
-    const raw = Cookies.get('_ud')
-    if (!raw) return null
-    return decryptData(raw)
-  }, [])
+  // Get user data from sessionStorage after component mounts
+  useEffect(() => {
+    setIsMounted(true);
+    const getUserFromSession = () => {
+      try {
+        const userData = sessionStorage.getItem("user");
+        if (!userData) return null;
+        const parsedUser = JSON.parse(userData);
+        return (parsedUser && typeof parsedUser === 'object') ? parsedUser : null;
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+        return null;
+      }
+    };
+    setSessionUser(getUserFromSession());
+  }, []);
 
-  const name = cookieUser?.name || 'User'
-  const email = cookieUser?.email || ''
-  const avatarSrc = cookieUser?.profilePicture ? buildImageSrc(cookieUser.profilePicture) : ''
+  // Use data from either AuthenticateContext or sessionStorage
+  const currentUser = user || sessionUser;
+  const name = currentUser?.name || 'User'
+  const email = currentUser?.email || ''
+  const avatarSrc = currentUser?.profilePicture ? buildImageSrc(currentUser.profilePicture) : ''
+
   const initials = useMemo(() => {
     return name
       .split(/\s+/)
@@ -82,18 +90,28 @@ export function NavUser() {
       .join('') || 'U'
   }, [name])
 
-  const [isLoggingOut,setIsLoggingOut] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
       await apiHandler({ url: '/api/auth/logout', method: 'POST', data: {} });
-    } catch (e) { /* ignore */ } finally {
+    } catch { /* ignore */ } finally {
       clearAuth();
+      // Clear sessionStorage data
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('session');
+      }
       router.push('/login');
       if (typeof window !== 'undefined') window.location.reload();
     }
   };
+
+  // Don't render if not mounted yet to prevent hydration issues
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <SidebarMenu>

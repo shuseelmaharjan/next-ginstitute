@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,8 +8,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import Cookies from "js-cookie";
 import apiClient from "../api/apiClient";
+import { useAuthenticate } from "@/app/context/AuthenticateContext";
 
 
 export default function LoginPage() {
@@ -17,6 +17,17 @@ export default function LoginPage() {
     const [isHovered, setIsHovered] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const router = useRouter();
+    const { isAuthenticated, refreshUser } = useAuthenticate();
+
+    // if already authenticated (or session flag exists), redirect away from login
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const hasSession = !!(sessionStorage.getItem('session') || sessionStorage.getItem('user'));
+            if (hasSession || isAuthenticated) {
+                router.replace('/dashboard');
+            }
+        }
+    }, [isAuthenticated, router]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -27,39 +38,48 @@ export default function LoginPage() {
         setErrorMsg("");
 
         try {
-            const res = await apiClient({
+            type LoginResponse = {
+                success: boolean;
+                message?: string;
+                data?: {
+                    user?: {
+                        id: number;
+                        username: string;
+                        email: string;
+                        name: string;
+                        role: string;
+                        isActive: boolean;
+                        profilePicture?: string;
+                    };
+                    accessToken?: string;
+                };
+            };
+
+            const res = await apiClient<LoginResponse>({
                 url: "/api/auth/login",
                 method: "POST",
                 data: {
                     identifier: form.username,
                     password: form.password,
                 },
-            });
+                headers: {
+                    "X-Client-Type": "web",
+                },
+            }) as LoginResponse;
 
-            const encryptData = (data: string) => {
-                return btoa(data);
-            }
+            if (res && res.success) {
+                if (typeof window !== "undefined" && res.data && res.data.user) {
+                    sessionStorage.setItem("user", JSON.stringify(res.data.user));
+                    try { sessionStorage.setItem('session', 'true'); } catch {}
+                }
 
-            if (res.success) {
-                if (typeof window !== "undefined" && res.data.user) {
-                    sessionStorage.setItem("username", res.data.user.username);
-                }
-                Cookies.set("_ud", encryptData(JSON.stringify(res.data.user)), {
-                    expires: 1,
-                    secure: false,
-                    sameSite: "Lax",
-                });
-                // Store accessToken in cookie with 1 hour expiry
-                if (res.data.accessToken) {
-                    localStorage.setItem("accessToken", res.data.accessToken);
-                }
-                router.push("/dashboard");
-                // Reload the page after route push
-                setTimeout(() => {
-                    window.location.reload();
-                }, 100);
+                // Refresh the authentication context to update isAuthenticated state
+                await refreshUser();
+
+                // Navigate to dashboard - context should now be updated
+                router.replace("/dashboard");
             } else {
-                setErrorMsg(res.message || "Login failed");
+                setErrorMsg(res?.message || "Login failed");
             }
         } catch (err: unknown) {
             // Safely extract message from unknown
