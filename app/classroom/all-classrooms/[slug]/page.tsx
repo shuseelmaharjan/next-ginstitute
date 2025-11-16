@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import apiHandler from "@/app/api/apiHandler";
 import { encryptNumber } from "@/utils/numberCrypto";
 import {
@@ -28,6 +28,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/hooks/use-toast";
 
 const PAGE_SIZE = 10;
 
@@ -90,14 +93,22 @@ export default function ClassroomSlugPage() {
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<string>("all");
-  
+
+  // Generate sheet state
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateType, setGenerateType] = useState<string>("billing");
+  const [selectedSectionGen, setSelectedSectionGen] = useState<string>("all");
+  const [billingMonth, setBillingMonth] = useState<string>("");
+  const [billingPriority, setBillingPriority] = useState<string>("all");
+  const [examination, setExamination] = useState<string>("");
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
   const [paginatedStudents, setPaginatedStudents] = useState<Student[]>([]);
 
   // Fetch students data
-  const fetchStudents = async (sectionId?: string) => {
+  const fetchStudents = useCallback(async (sectionId?: string) => {
     try {
       setLoading(true);
       setError("");
@@ -121,13 +132,14 @@ export default function ClassroomSlugPage() {
       } else {
         setError("Failed to fetch students data");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching students:", err);
-      setError(err.message || "Failed to fetch students data");
+      const message = (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') ? (err as any).message : 'Failed to fetch students data';
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [classId]);
 
   // Update paginated students when page or students change
   useEffect(() => {
@@ -141,7 +153,7 @@ export default function ClassroomSlugPage() {
     if (classId) {
       fetchStudents();
     }
-  }, [classId]);
+  }, [classId, fetchStudents]);
 
   // Filter handlers
   const handleFilter = () => {
@@ -153,6 +165,87 @@ export default function ClassroomSlugPage() {
     setSelectedSection("all");
     fetchStudents();
     setFilterOpen(false);
+  };
+
+  // Generate download helper
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = async () => {
+    // validate common
+    if (!generateType) {
+      toast({ title: "Validation", description: "Please select a generate option", variant: "destructive" });
+      return;
+    }
+
+    if (!selectedSectionGen) {
+      toast({ title: "Validation", description: "Please select a section", variant: "destructive" });
+      return;
+    }
+
+    // type specific validation
+    if (generateType === "billing") {
+      if (!billingMonth) {
+        toast({ title: "Validation", description: "Please select a month for billing", variant: "destructive" });
+        return;
+      }
+    }
+
+    if (generateType === "admitcard") {
+      if (!examination.trim()) {
+        toast({ title: "Validation", description: "Please provide examination name", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Build payload
+    const payload: Record<string, unknown> = {
+      section: selectedSectionGen === "all" ? "all" : selectedSectionGen,
+    };
+
+    let url = "";
+
+    try {
+      if (generateType === "billing") {
+        url = "/api/v1/generate/billing";
+        Object.assign(payload, { month: billingMonth, priority: billingPriority });
+      } else if (generateType === "admitcard") {
+        url = "/api/v1/generate/admitcard";
+        Object.assign(payload, { examination });
+      } else if (generateType === "idcard") {
+        url = "/api/v1/generate/idcard";
+      } else if (generateType === "report") {
+        url = "/api/v1/generate/report";
+      } else {
+        toast({ title: "Validation", description: "Unsupported generate option", variant: "destructive" });
+        return;
+      }
+
+      // Send request expecting blob
+      const response = await apiHandler<Blob>({ url, method: "POST", data: payload, responseType: 'blob' });
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Failed to generate file", variant: "destructive" });
+        return;
+      }
+
+      const blob = response.data as unknown as Blob;
+      const filename = `${generateType}-${selectedSectionGen}-${Date.now()}.pdf`;
+      downloadBlob(blob, filename);
+      toast({ title: "Download", description: "File downloaded successfully", variant: "success" });
+      setGenerateOpen(false);
+    } catch (err: unknown) {
+      console.error(err);
+      const message = (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') ? (err as any).message : 'Download failed';
+      toast({ title: "Error", description: message, variant: "destructive" });
+    }
   };
 
   // Pagination handlers
@@ -185,45 +278,143 @@ export default function ClassroomSlugPage() {
         <div>
           <div>
               <h2 className="text-2xl font-bold tracking-tight">Classroom Students</h2>
-                <p>Manage all classrooms and sections here.</p>
+                <p className="text-muted-foreground">Manage all classrooms and sections here.</p>
           </div>
         </div>
         
-        {/* Filter Button */}
-        <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm">Filter</Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="max-w-sm w-full p-4">
-            <SheetTitle className="mb-4">Filter Students</SheetTitle>
-            <div className="space-y-6">
-              <div>
-                <label className="block mb-2 font-medium">Select Section</label>
-                <Select value={selectedSection} onValueChange={setSelectedSection}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All Sections" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Sections</SelectItem>
-                    {availableSections.map((section) => (
-                      <SelectItem key={section.sectionId} value={String(section.sectionId)}>
-                        {section.sectionName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className="flex items-center gap-2">
+          {/* Filter Button */}
+          <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm">Filter</Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="max-w-sm w-full p-4">
+              <SheetTitle className="mb-4">Filter Students</SheetTitle>
+              <div className="space-y-6">
+                <div>
+                  <label className="block mb-2 font-medium">Select Section</label>
+                  <Select value={selectedSection} onValueChange={setSelectedSection}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Sections" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sections</SelectItem>
+                      {availableSections.map((section) => (
+                        <SelectItem key={section.sectionId} value={String(section.sectionId)}>
+                          {section.sectionName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Button onClick={handleFilter} className="w-full">
+                    Apply Filter
+                  </Button>
+                  <Button onClick={handleClearFilter} variant="outline" className="w-full">
+                    Clear Filter
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Button onClick={handleFilter} className="w-full">
-                  Apply Filter
-                </Button>
-                <Button onClick={handleClearFilter} variant="outline" className="w-full">
-                  Clear Filter
-                </Button>
+            </SheetContent>
+          </Sheet>
+
+          {/* Generate Button */}
+          <Sheet open={generateOpen} onOpenChange={setGenerateOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm">Generate</Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="max-w-sm w-full p-4">
+              <SheetTitle className="mb-4">Generate</SheetTitle>
+
+              <div className="space-y-4">
+                <div>
+                  <Label className="mb-2">Generate</Label>
+                  <Select value={generateType} onValueChange={setGenerateType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="billing">Billing</SelectItem>
+                      <SelectItem value="report">Report</SelectItem>
+                      <SelectItem value="admitcard">Admit Card</SelectItem>
+                      <SelectItem value="idcard">ID Card</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="mb-2">Select Section</Label>
+                  <Select value={selectedSectionGen} onValueChange={setSelectedSectionGen}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Sections" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sections</SelectItem>
+                      {availableSections.map((section) => (
+                        <SelectItem key={section.sectionId} value={String(section.sectionId)}>
+                          {section.sectionName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Billing specific options */}
+                {generateType === "billing" && (
+                  <>
+                    <div>
+                      <Label className="mb-2">Month</Label>
+                      <Select value={billingMonth} onValueChange={setBillingMonth}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[
+                            'Baisakh', 'Jestha', 'Asar', 'Shrawan', 'Bhadra', 'Asoj', 'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'
+                          ].map(m => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="mb-2">Priority</Label>
+                      <Select value={billingPriority} onValueChange={setBillingPriority}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="due">Due</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {/* Admit card specific */}
+                {generateType === "admitcard" && (
+                  <>
+                    <div>
+                      <Label className="mb-2">Examination</Label>
+                      <Input value={examination} onChange={(e) => setExamination(e.target.value)} placeholder="Examination name" />
+                    </div>
+                  </>
+                )}
+
+                {/* ID card - no extra fields */}
+
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleDownload} className="w-full">Download</Button>
+                  <Button variant="outline" onClick={() => setGenerateOpen(false)} className="w-full">Cancel</Button>
+                </div>
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -324,8 +515,8 @@ export default function ClassroomSlugPage() {
             <span className="px-3 py-1 text-sm">
               {page}
             </span>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="outline" 
               onClick={handleNext} 
               disabled={page === totalPages}
@@ -338,4 +529,3 @@ export default function ClassroomSlugPage() {
     </div>
   );
 }
-
