@@ -1,6 +1,6 @@
 "use client"
 import { useParams } from "next/navigation";
-import {decryptNumber} from "@/utils/numberCrypto";
+import {decryptNumber, encryptNumber} from "@/utils/numberCrypto";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,8 +52,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/hooks/use-toast";
-// Added shadcn Select components
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {useRouter} from "next/navigation";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 // Document Card Component
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +68,8 @@ function DocumentCard({ doc }: { doc: any }) {
                 {imageUrl && !imageError ? (
                     <ImageZoom>
                         <ImageZoomTrigger>
-                            <img 
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
                                 src={imageUrl}
                                 alt={doc.type} 
                                 className="h-24 w-24 object-cover rounded-lg border shadow-sm hover:shadow-md transition-shadow" 
@@ -120,6 +122,7 @@ function DocumentCard({ doc }: { doc: any }) {
 }
 
 export default function UserSlugPage() {
+    const router = useRouter();
     const params = useParams();
     const slug = params?.slug;
     const userId = typeof slug === "string" ? decryptNumber(slug) : undefined;
@@ -145,6 +148,15 @@ export default function UserSlugPage() {
         emergencyContact: ""
     });
     const [isUpdatingGuardian, setIsUpdatingGuardian] = useState(false);
+    const [profileImageError, setProfileImageError] = useState(false);
+    // Prepare profile URL and initials for avatar fallback (must be before any early returns)
+    const profileUrl = (userData as any)?.personalInfo?.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${(userData as any).personalInfo.profile}` : '/default-profile.png';
+    const initials = ((userData as any)?.personalInfo?.name || "").split(" ").map((n: string) => n?.[0] || "").slice(0,2).join("").toUpperCase() || 'U';
+
+    // Reset image error when profile changes
+    useEffect(() => {
+        setProfileImageError(false);
+    }, [(userData as any)?.personalInfo?.profile]);
 
     // New state for Address Update Modal
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -546,6 +558,7 @@ export default function UserSlugPage() {
     const ud: any = userData;
     const { personalInfo, guardianInfo, addressInfo, accountStatus, accountCreatedUpdatedInfo, userDocumentInfo, enrollmentInfo, inactiveEnrollmentInfo } = ud;
 
+
     // Create local lists (typed any) to avoid placing eslint-disable comments inside JSX
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enrollmentList: any[] = enrollmentInfo || [];
@@ -564,7 +577,7 @@ export default function UserSlugPage() {
                     <Button variant='default' size="sm" className="cursor-pointer">Canvas</Button>
                     <Button variant='default' size="sm" className="cursor-pointer">Gallery</Button>
                     <Button variant='default' size="sm" className="cursor-pointer">View Report</Button>
-                    <Button variant='default' size="sm" className="cursor-pointer">Pay Bill</Button>
+                    <Button variant='default' size="sm" className="cursor-pointer" onClick={() => { if(userId!==undefined) router.push(`/billing/user?student=${encryptNumber(userId)}`) }}>Pay Bill</Button>
                 </div>
             </div>
             {/* First Row - Main Info Grid */}
@@ -574,18 +587,37 @@ export default function UserSlugPage() {
                     <CardContent className="flex flex-col items-center p-2">
                         <ImageZoom>
                             <ImageZoomTrigger>
-                                <img 
-                                    src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : '/default-profile.png'} 
-                                    alt={personalInfo.name} 
-                                    className="h-72 w-56 object-cover rounded border shadow-sm mb-4" 
-                                />
+                                <Avatar className="h-72 w-56 mb-4">
+                                    {!profileImageError ? (
+                                        <AvatarImage
+                                            src={profileUrl}
+                                            alt={personalInfo.name}
+                                            onError={() => {
+                                                console.error('Profile image failed to load:', profileUrl);
+                                                setProfileImageError(true);
+                                            }}
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <AvatarFallback>{initials}</AvatarFallback>
+                                    )}
+                                </Avatar>
                             </ImageZoomTrigger>
                             <ImageZoomContent title={`Profile Photo - ${personalInfo.name}`}>
                                 <div className="flex flex-col items-center space-y-4">
-                                    <ImageZoomImage
-                                        src={personalInfo.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${personalInfo.profile}` : '/default-profile.png'}
-                                        alt={`${personalInfo.name} - Profile Photo`}
-                                    />
+                                    {!profileImageError ? (
+                                        <ImageZoomImage
+                                            src={profileUrl}
+                                            alt={`${personalInfo.name} - Profile Photo`}
+                                            onError={() => setProfileImageError(true)}
+                                        />
+                                    ) : (
+                                        <div className="flex flex-col items-center space-y-2">
+                                            <Avatar className="h-48 w-32">
+                                                <AvatarFallback>{initials}</AvatarFallback>
+                                            </Avatar>
+                                        </div>
+                                    )}
                                     <div className="text-center text-white">
                                         <h3 className="text-xl font-semibold mb-2">{personalInfo.name}</h3>
                                         <div className="text-sm text-gray-300 space-y-1">

@@ -22,6 +22,8 @@ const getSettingsPageTitle = (pathname: string): string => {
       return 'Account';
     case 'faculty':
       return 'Faculty';
+    case 'organization':
+        return 'Organization';
 
       case 'configure-fee-structure':
         return 'Configure Fee Structure';

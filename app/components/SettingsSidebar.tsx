@@ -13,8 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { memo, useMemo } from "react";
-import Cookies from "js-cookie";
+import { memo, useMemo, useState, useEffect } from "react";
 
 interface SettingsNavItem {
   title: string;
@@ -48,6 +47,12 @@ const allNavItems: SettingsNavItem[] = [
     icon: Banknote,
     description: "Set up and manage fee structures for courses"
     },
+    {
+    title: "Organization",
+    href: "/settings/organization",
+    icon: Users,
+    description: "Organization details, website, and branding settings"
+    },
   {
     title: "API",
     href: "/settings/api",
@@ -65,25 +70,20 @@ interface SettingsSidebarProps {
 
 export const SettingsSidebar = memo(function SettingsSidebar({ className }: SettingsSidebarProps) {
   const pathname = usePathname();
+  const [role, setRole] = useState<string | undefined>(undefined);
 
-  //get user role from cookies
-  const getRole = Cookies.get('_ud');
-
-  let role: string | undefined;
-
-  const decryptData = (data: string) => {
-    try{
-      return JSON.parse(atob(data));
-    }catch(e){
-      console.error("Failed to decrypt data", e);
-      return null;
+  useEffect(() => {
+    // Get user role from session storage
+    const userDataString = sessionStorage.getItem('user');
+    if (userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        setRole(userData?.role);
+      } catch (e) {
+        console.error("Failed to parse user data from session storage", e);
+      }
     }
-  };
-
-  if(getRole){
-    const userData = decryptData(getRole);
-    role = userData?.role;
-  }
+  }, []);
 
   // Determine settingsNavItems based on role
   const settingsNavItems: SettingsNavItem[] = 

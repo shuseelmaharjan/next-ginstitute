@@ -153,14 +153,15 @@ export function DepartmentFormModal({
           <div className="grid gap-4 py-4">
             {/* Faculty Selection - Only show for new departments */}
             {!isEditing && (
-              <div className="grid gap-2">
+              <div className="grid gap-2 w-full">
                 <Label htmlFor="faculty">Faculty *</Label>
                 <Select
                   value={facultyId}
                   onValueChange={setFacultyId}
                   disabled={facultiesLoading || isLoading}
+                  className="w-full"
                 >
-                  <SelectTrigger id="faculty">
+                  <SelectTrigger id="faculty" className="w-full">
                     <SelectValue
                       placeholder={facultiesLoading ? "Loading faculties..." : "Select faculty"}
                     >
@@ -169,7 +170,7 @@ export function DepartmentFormModal({
                         : null}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-full">
                     {faculties.map((faculty) => (
                       <SelectItem key={faculty.id} value={faculty.id.toString()}>
                         {faculty.facultyName}

@@ -1277,7 +1277,7 @@ const GalleryPage = () => {
                                             />
                                             <span className="text-sm font-medium text-gray-600 min-w-8">300%</span>
                                         </div>
-                                        <div className="absolute top-6 left-0 right-0 flex justify-center">
+                                        <div className="absolute top-6 left-0 right-0 flex justify-center hidden">
                 <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
                   Zoom: {Math.round(zoom * 100)}%
                 </span>
@@ -1340,7 +1340,7 @@ const GalleryPage = () => {
                             </div>
 
                             {/* Zoom Instructions */}
-                            <div className="mt-3 text-center">
+                            <div className="mt-3 text-center hidden">
                                 <p className="text-xs text-gray-500">
                                     Use mouse wheel to zoom • Click and drag to pan when zoomed in
                                 </p>

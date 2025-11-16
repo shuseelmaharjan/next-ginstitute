@@ -72,10 +72,10 @@ export default function LoginPage() {
                     sessionStorage.setItem("user", JSON.stringify(res.data.user));
                     try { sessionStorage.setItem('session', 'true'); } catch {}
                 }
-
+                
                 // Refresh the authentication context to update isAuthenticated state
                 await refreshUser();
-
+                
                 // Navigate to dashboard - context should now be updated
                 router.replace("/dashboard");
             } else {
