@@ -65,7 +65,7 @@ interface SectionItem { id: number; sectionName: string; class_id?: number; }
 
 interface FeeRuleForm {
   name: string;
-  category: typeof categories[number];
+  category: string;
   defaultAmount: string;
   currency: string;
   recurrenceType: "ONCE" | "RECURRING";
@@ -381,7 +381,7 @@ export default function ConfigureFeeStructurePage() {
       intervalMonths: rule.intervalMonths ? String(rule.intervalMonths) : "",
       section_id: rule.section_id,
       isActive: rule.isActive !== false,
-      selectionMode: rule.section_id ? "group" : "individual",
+      selectionMode: rule.section_id !== null ? "group" : "individual",
     });
     // Populate hierarchy chain if section is present
     if (rule.section && rule.section.class) {
@@ -472,7 +472,7 @@ export default function ConfigureFeeStructurePage() {
     const errors: string[] = [];
     const name = feeRuleForm.name.trim();
     if (!name) errors.push("Name is required.");
-    if (!categories.includes(feeRuleForm.category as any)) errors.push("Invalid category.");
+    if (!categories.includes(feeRuleForm.category as typeof categories[number])) errors.push("Invalid category.");
     if (feeRuleForm.currency !== "NPR") errors.push("Only NPR currency is allowed currently.");
     const amountNum = Number(feeRuleForm.defaultAmount);
     if (isNaN(amountNum) || amountNum <= 0 || !Number.isInteger(amountNum)) errors.push("Default amount must be a positive integer.");
@@ -554,357 +554,393 @@ export default function ConfigureFeeStructurePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
+    <div className="min-w-0 w-full">
+      <div className="space-y-6">
+        {/* Header - stack on mobile, inline on md+ */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div>
             <h2 className="text-2xl font-bold">Configure Fee Structure</h2>
-            <p className="text-muted-foreground">
-                Set up and manage fee structures for courses
-            </p>
+            <p className="text-muted-foreground">Set up and manage fee structures for courses</p>
+          </div>
+          <div className="mt-4 md:mt-0">
+            <Button onClick={openCreateModal} className="cursor-pointer">Create Fee Structure</Button>
+          </div>
         </div>
-        <Button onClick={openCreateModal} className="cursor-pointer">Create Fee Structure</Button>
-      </div>
-      <Separator />
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-black hover:bg-black/90">
-            <TableHead className="font-bold text-white">Fee Type</TableHead>
-            <TableHead className="font-bold text-white">Amount</TableHead>
-            <TableHead className="font-bold text-white">Description</TableHead>
-            <TableHead className="font-bold text-white">Admission</TableHead>
-            <TableHead className="font-bold text-white">Upgrade</TableHead>
-            <TableHead className="font-bold text-white">Renewal</TableHead>
-            <TableHead className="font-bold text-white">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {feeStructures.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">No record found</TableCell>
-            </TableRow>
-          ) : (
-            feeStructures.map((fee) => (
-              <TableRow key={fee.id}>
-                <TableCell>{fee.feeType}</TableCell>
-                <TableCell>{fee.amount}</TableCell>
-                <TableCell>{fee.description}</TableCell>
-                <TableCell>
-                  {fee.requireonAdmission ? (
-                    <Badge variant="default">Required</Badge>
-                  ) : (
-                    <Badge variant="secondary">Not Required</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {fee.requireonUpgrade ? (
-                    <Badge variant="default">Required</Badge>
-                  ) : (
-                    <Badge variant="secondary">Not Required</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {fee.requireonRenewal ? (
-                    <Badge variant="default">Required</Badge>
-                  ) : (
-                    <Badge variant="secondary">Not Required</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEditModal(fee)} className="cursor-pointer">Edit</Button>
-                    <Button size="sm" variant="destructive" onClick={() => { setFeeToDelete(fee); setDeleteDialogOpen(true); }} className="cursor-pointer">Delete</Button>
-                  </div>
-                </TableCell>
+
+        <Separator />
+
+        {/* Main table - constrain width and allow scrolling inside the box */}
+        <div className="w-full overflow-x-auto">
+          <Table className="w-full table-fixed">
+            <TableHeader>
+              <TableRow className="bg-black hover:bg-black/90">
+                <TableHead className="font-bold text-white">Fee Type</TableHead>
+                <TableHead className="font-bold text-white">Amount</TableHead>
+                <TableHead className="font-bold text-white">Description</TableHead>
+                <TableHead className="font-bold text-white">Admission</TableHead>
+                <TableHead className="font-bold text-white">Upgrade</TableHead>
+                <TableHead className="font-bold text-white">Renewal</TableHead>
+                <TableHead className="font-bold text-white">Actions</TableHead>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-      {/* Create/Update Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editMode ? "Update Fee Structure" : "Create Fee Structure"}</DialogTitle>
-          </DialogHeader>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1">
-                Fee Type
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Enter the type of fee (e.g. Admission Fee)</TooltipContent>
-                </Tooltip>
-              </Label>
-              <Input name="feeType" value={form.feeType} onChange={handleFormChange} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1">
-                Amount
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Enter a positive integer amount</TooltipContent>
-                </Tooltip>
-              </Label>
-              <Input name="amount" type="number" step="1" min="1" value={form.amount} onChange={handleFormChange} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1">
-                Description
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Describe the fee structure</TooltipContent>
-                </Tooltip>
-              </Label>
-              <Input name="description" value={form.description} onChange={handleFormChange} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1">
-                Required on
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Select when this fee is required</TooltipContent>
-                </Tooltip>
-              </Label>
-              <div className="flex gap-4 items-center">
-                <Label className="flex items-center gap-2">
-                  <Checkbox checked={form.requireonAdmission} onCheckedChange={(checked) => handleCheckboxChange("requireonAdmission", !!checked)} /> Admission
-                </Label>
-                <Label className="flex items-center gap-2">
-                  <Checkbox checked={form.requireonUpgrade} onCheckedChange={(checked) => handleCheckboxChange("requireonUpgrade", !!checked)} /> Upgrade
-                </Label>
-                <Label className="flex items-center gap-2">
-                  <Checkbox checked={form.requireonRenewal} onCheckedChange={(checked) => handleCheckboxChange("requireonRenewal", !!checked)} /> Renewal
-                </Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={loading} className="cursor-pointer">
-                {editMode ? "Update" : "Create"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Fee Structure</AlertDialogTitle>
-            <AlertDialogDescription>
-              {feeToDelete ? `Do you want to delete '${feeToDelete.feeType}'? This action cannot be undone.` : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 text-white hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Fee Rules Management Section */}
-      <Separator />
-      <div className="flex justify-between items-center mt-10">
-        <div>
-          <h2 className="text-2xl font-bold">Manage Fee Rules</h2>
-          <p className="text-muted-foreground">Create and manage fee rules with currency and recurrence</p>
-        </div>
-        <Button onClick={openFeeRuleCreateModal} className="cursor-pointer" variant="secondary">Create Fee Rule</Button>
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-black hover:bg-black/90">
-            <TableHead className="font-bold text-white">Name</TableHead>
-            <TableHead className="font-bold text-white">Category</TableHead>
-            <TableHead className="font-bold text-white">Amount</TableHead>
-            <TableHead className="font-bold text-white">Currency</TableHead>
-            <TableHead className="font-bold text-white">Recurrence</TableHead>
-            <TableHead className="font-bold text-white">Interval (Months)</TableHead>
-            <TableHead className="font-bold text-white">Section</TableHead>
-            <TableHead className="font-bold text-white">Class</TableHead>
-            <TableHead className="font-bold text-white">Department</TableHead>
-            <TableHead className="font-bold text-white">Faculty</TableHead>
-            <TableHead className="font-bold text-white">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {feeRules.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={11} className="text-center text-muted-foreground">No fee rules found</TableCell>
-            </TableRow>
-          ) : (
-            feeRules.map((rule) => {
-              const section = rule.section;
-              const cls = section?.class;
-              const dept = cls?.department;
-              const fac = dept?.faculty;
-              return (
-                <TableRow key={rule.id}>
-                  <TableCell>{rule.name}</TableCell>
-                  <TableCell className="capitalize">{rule.category}</TableCell>
-                  <TableCell>{rule.defaultAmount}</TableCell>
-                  <TableCell>{rule.currency}</TableCell>
-                  <TableCell>{rule.recurrenceType?.toUpperCase()}</TableCell>
-                  <TableCell>{rule.recurrenceType?.toUpperCase() === "RECURRING" ? rule.intervalMonths : "-"}</TableCell>
-                  <TableCell>{rule.section_id ? section?.sectionName : <Badge variant="secondary">Individual</Badge>}</TableCell>
-                  <TableCell>{cls?.className || (rule.section_id ? "-" : "-")}</TableCell>
-                  <TableCell>{dept?.departmentName || (rule.section_id ? "-" : "-")}</TableCell>
-                  <TableCell>{fac?.facultyName || (rule.section_id ? "-" : "-")}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openFeeRuleEditModal(rule)} className="cursor-pointer">Edit</Button>
-                      <Button size="sm" variant="destructive" onClick={() => { setFeeRuleToDelete(rule); setFeeRuleDeleteDialogOpen(true); }} className="cursor-pointer">Delete</Button>
-                    </div>
-                  </TableCell>
+            </TableHeader>
+            <TableBody>
+              {feeStructures.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">No record found</TableCell>
                 </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
+              ) : (
+                feeStructures.map((fee) => (
+                  <TableRow key={fee.id}>
+                    <TableCell>{fee.feeType}</TableCell>
+                    <TableCell>{fee.amount}</TableCell>
+                    <TableCell>{fee.description}</TableCell>
+                    <TableCell>
+                      {fee.requireonAdmission ? (
+                        <Badge variant="default">Required</Badge>
+                      ) : (
+                        <Badge variant="secondary">Not Required</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {fee.requireonUpgrade ? (
+                        <Badge variant="default">Required</Badge>
+                      ) : (
+                        <Badge variant="secondary">Not Required</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {fee.requireonRenewal ? (
+                        <Badge variant="default">Required</Badge>
+                      ) : (
+                        <Badge variant="secondary">Not Required</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEditModal(fee)} className="cursor-pointer">Edit</Button>
+                        <Button size="sm" variant="destructive" onClick={() => { setFeeToDelete(fee); setDeleteDialogOpen(true); }} className="cursor-pointer">Delete</Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-      {/* Fee Rule Create/Update Modal */}
-      <Dialog open={feeRuleModalOpen} onOpenChange={setFeeRuleModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{feeRuleEditMode ? "Update Fee Rule" : "Create Fee Rule"}</DialogTitle>
-          </DialogHeader>
-          <form className="space-y-4" onSubmit={handleFeeRuleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Create/Update Modal */}
+        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editMode ? "Update Fee Structure" : "Create Fee Structure"}</DialogTitle>
+            </DialogHeader>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={feeRuleForm.name} onChange={(e) => handleFeeRuleFormChange("name", e.target.value)} required />
+                <Label className="flex items-center gap-1">
+                  Fee Type
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Enter the type of fee (e.g. Admission Fee)</TooltipContent>
+                  </Tooltip>
+                </Label>
+                <Input name="feeType" value={form.feeType} onChange={handleFormChange} required />
               </div>
               <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={feeRuleForm.category} onValueChange={(v) => handleFeeRuleFormChange("category", v)}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label className="flex items-center gap-1">
+                  Amount
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Enter a positive integer amount</TooltipContent>
+                  </Tooltip>
+                </Label>
+                <Input name="amount" type="number" step="1" min="1" value={form.amount} onChange={handleFormChange} required />
               </div>
               <div className="space-y-2">
-                <Label>Default Amount</Label>
-                <Input type="number" step="1" min="1" value={feeRuleForm.defaultAmount} onChange={(e) => handleFeeRuleFormChange("defaultAmount", e.target.value)} required />
+                <Label className="flex items-center gap-1">
+                  Description
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Describe the fee structure</TooltipContent>
+                  </Tooltip>
+                </Label>
+                <Input name="description" value={form.description} onChange={handleFormChange} required />
               </div>
               <div className="space-y-2">
-                <Label>Currency</Label>
-                <Select value={feeRuleForm.currency} onValueChange={(v) => handleFeeRuleFormChange("currency", v)}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select currency" /></SelectTrigger>
-                  <SelectContent>
-                    {currencies.map((c) => (
-                      <SelectItem key={c} value={c} disabled={c !== "NPR"}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="flex items-center gap-1">
+                  Required on
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Select when this fee is required</TooltipContent>
+                  </Tooltip>
+                </Label>
+                <div className="flex gap-4 items-center">
+                  <Label className="flex items-center gap-2">
+                    <Checkbox checked={form.requireonAdmission} onCheckedChange={(checked) => handleCheckboxChange("requireonAdmission", !!checked)} /> Admission
+                  </Label>
+                  <Label className="flex items-center gap-2">
+                    <Checkbox checked={form.requireonUpgrade} onCheckedChange={(checked) => handleCheckboxChange("requireonUpgrade", !!checked)} /> Upgrade
+                  </Label>
+                  <Label className="flex items-center gap-2">
+                    <Checkbox checked={form.requireonRenewal} onCheckedChange={(checked) => handleCheckboxChange("requireonRenewal", !!checked)} /> Renewal
+                  </Label>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Interval</Label>
-                <Select
-                  value={feeRuleForm.recurrenceType === "ONCE" ? "ONCE" : (feeRuleForm.intervalMonths ? String(feeRuleForm.intervalMonths) : "")}
-                  onValueChange={(v) => {
-                    if (v === "ONCE") {
-                      setFeeRuleForm((prev) => ({ ...prev, recurrenceType: "ONCE", intervalMonths: "" }));
-                    } else {
-                      setFeeRuleForm((prev) => ({ ...prev, recurrenceType: "RECURRING", intervalMonths: v }));
+              <DialogFooter>
+                <Button type="submit" disabled={loading} className="cursor-pointer">
+                  {editMode ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Fee Structure</AlertDialogTitle>
+              <AlertDialogDescription>
+                {feeToDelete ? `Do you want to delete '${feeToDelete.feeType}'? This action cannot be undone.` : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-red-600 text-white hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Fee Rules Management Section */}
+        <Separator />
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mt-10">
+          <div>
+            <h2 className="text-2xl font-bold">Manage Fee Rules</h2>
+            <p className="text-muted-foreground">Create and manage fee rules with currency and recurrence</p>
+          </div>
+          <div className="mt-4 md:mt-0">
+            <Button onClick={openFeeRuleCreateModal} className="cursor-pointer" variant="default">Create Fee Rule</Button>
+          </div>
+        </div>
+        {/* Fee Rules table - constrain width and allow scrolling inside the box */}
+        <div className="w-full overflow-x-auto">
+          <Table className="w-full table-fixed">
+            <TableHeader>
+              <TableRow className="bg-black hover:bg-black/90">
+                <TableHead className="font-bold text-white">Name</TableHead>
+                <TableHead className="font-bold text-white">Category</TableHead>
+                <TableHead className="font-bold text-white">Amount</TableHead>
+                <TableHead className="font-bold text-white">Interval (Months)</TableHead>
+                <TableHead className="font-bold text-white">Section</TableHead>
+                <TableHead className="font-bold text-white">Class</TableHead>
+                <TableHead className="font-bold text-white">Department</TableHead>
+                <TableHead className="font-bold text-white">Faculty</TableHead>
+                <TableHead className="font-bold text-white">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {feeRules.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">No fee rules found</TableCell>
+                </TableRow>
+              ) : (
+                feeRules.map((rule) => {
+                  const amountFormatted = (() => {
+                    const num = Number(rule.defaultAmount ?? 0);
+                    if (Number.isNaN(num)) return `${rule.currency || ''} ${rule.defaultAmount}`;
+                    return `${rule.currency || ''} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  })();
+
+                  // Format interval display
+                  const intervalDisplay = (() => {
+                    const recType = rule.recurrenceType?.toUpperCase();
+                    if (recType === 'ONCE') return 'Once';
+                    if (recType === 'RECURRING') {
+                      const interval = rule.intervalMonths;
+                      if (interval === 1) return 'Monthly';
+                      if (interval === 2) return 'Bimonthly';
+                      if (interval === 3) return 'Quarterly';
+                      if (interval === 4) return 'Four-monthly';
+                      if (interval === 6) return 'Semiannually';
+                      if (interval === 12) return 'Annually';
+                      return interval ? `${interval} months` : '-';
                     }
-                  }}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select interval" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ONCE">Once</SelectItem>
-                    <SelectItem value="1">Monthly</SelectItem>
-                    <SelectItem value="2">Bimonthly</SelectItem>
-                    <SelectItem value="3">Quarterly</SelectItem>
-                    <SelectItem value="4">Four-monthly</SelectItem>
-                    <SelectItem value="6">Semiannually</SelectItem>
-                    <SelectItem value="12">Annually</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Applies To</Label>
-                <Select value={feeRuleForm.selectionMode} onValueChange={(v) => handleSelectionModeChange(v as "individual" | "group")}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select mode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="individual">Individual</SelectItem>
-                    <SelectItem value="group">Group</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                    return '-';
+                  })();
 
-            <Separator />
-            {feeRuleForm.selectionMode === "group" && (
+                  // Display hierarchy only if section_id is not null
+                  const hasSection = rule.section_id !== null;
+                  const section = rule.section;
+                  const cls = section?.class;
+                  const dept = cls?.department;
+                  const fac = dept?.faculty;
+
+                  return (
+                    <TableRow key={rule.id}>
+                      <TableCell>{rule.name}</TableCell>
+                      <TableCell className="capitalize">{rule.category}</TableCell>
+                      <TableCell>{amountFormatted}</TableCell>
+                      <TableCell>{intervalDisplay}</TableCell>
+                      <TableCell>{hasSection ? (section?.sectionName ?? '-') : '-'}</TableCell>
+                      <TableCell>{hasSection ? (cls?.className ?? '-') : '-'}</TableCell>
+                      <TableCell>{hasSection ? (dept?.departmentName ?? '-') : '-'}</TableCell>
+                      <TableCell>{hasSection ? (fac?.facultyName ?? '-') : '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openFeeRuleEditModal(rule)} className="cursor-pointer">Edit</Button>
+                          <Button size="sm" variant="destructive" onClick={() => { setFeeRuleToDelete(rule); setFeeRuleDeleteDialogOpen(true); }} className="cursor-pointer">Delete</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Fee Rule Create/Update Modal */}
+        <Dialog open={feeRuleModalOpen} onOpenChange={setFeeRuleModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{feeRuleEditMode ? "Update Fee Rule" : "Create Fee Rule"}</DialogTitle>
+            </DialogHeader>
+            <form className="space-y-4" onSubmit={handleFeeRuleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Faculty</Label>
-                  <Select value={selectedFacultyId ? String(selectedFacultyId) : ""} onValueChange={handleSelectFaculty}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select faculty" /></SelectTrigger>
+                  <Label>Name</Label>
+                  <Input value={feeRuleForm.name} onChange={(e) => handleFeeRuleFormChange("name", e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={feeRuleForm.category} onValueChange={(v) => handleFeeRuleFormChange("category", v)}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
-                      {faculties.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.facultyName}</SelectItem>)}
+                      {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Select value={selectedDepartmentId ? String(selectedDepartmentId) : ""} onValueChange={handleSelectDepartment} disabled={!selectedFacultyId}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <Label>Default Amount</Label>
+                  <Input type="number" step="1" min="1" value={feeRuleForm.defaultAmount} onChange={(e) => handleFeeRuleFormChange("defaultAmount", e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Select value={feeRuleForm.currency} onValueChange={(v) => handleFeeRuleFormChange("currency", v)}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select currency" /></SelectTrigger>
                     <SelectContent>
-                      {departments.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.departmentName}</SelectItem>)}
+                      {currencies.map((c) => (
+                        <SelectItem key={c} value={c} disabled={c !== "NPR"}>{c}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Class</Label>
-                  <Select value={selectedClassId ? String(selectedClassId) : ""} onValueChange={handleSelectClass} disabled={!selectedDepartmentId}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <Label>Interval</Label>
+                  <Select
+                    value={feeRuleForm.recurrenceType === "ONCE" ? "ONCE" : (feeRuleForm.intervalMonths ? String(feeRuleForm.intervalMonths) : "")}
+                    onValueChange={(v) => {
+                      if (v === "ONCE") {
+                        setFeeRuleForm((prev) => ({ ...prev, recurrenceType: "ONCE", intervalMonths: "" }));
+                      } else {
+                        setFeeRuleForm((prev) => ({ ...prev, recurrenceType: "RECURRING", intervalMonths: v }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select interval" /></SelectTrigger>
                     <SelectContent>
-                      {classes.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.className}</SelectItem>)}
+                      <SelectItem value="ONCE">Once</SelectItem>
+                      <SelectItem value="1">Monthly</SelectItem>
+                      <SelectItem value="2">Bimonthly</SelectItem>
+                      <SelectItem value="3">Quarterly</SelectItem>
+                      <SelectItem value="4">Four-monthly</SelectItem>
+                      <SelectItem value="6">Semiannually</SelectItem>
+                      <SelectItem value="12">Annually</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Section</Label>
-                  <Select value={selectedSectionId ? String(selectedSectionId) : ""} onValueChange={handleSelectSection} disabled={!selectedClassId}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+                  <Label>Applies To</Label>
+                  <Select value={feeRuleForm.selectionMode} onValueChange={(v) => handleSelectionModeChange(v as "individual" | "group")}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select mode" /></SelectTrigger>
                     <SelectContent>
-                      {sections.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.sectionName}</SelectItem>)}
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="group">Group</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-            )}
-            <DialogFooter>
-              <Button type="submit" disabled={feeRulesLoading} className="cursor-pointer">{feeRuleEditMode ? "Update" : "Create"}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
-      {/* Fee Rule Delete Confirmation */}
-      <AlertDialog open={feeRuleDeleteDialogOpen} onOpenChange={setFeeRuleDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Fee Rule</AlertDialogTitle>
-            <AlertDialogDescription>
-              {feeRuleToDelete ? `Do you want to delete '${feeRuleToDelete.name}'? This action cannot be undone.` : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setFeeRuleDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleFeeRuleDelete} className="bg-red-600 text-white hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <Separator />
+              {feeRuleForm.selectionMode === "group" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Faculty</Label>
+                    <Select value={selectedFacultyId ? String(selectedFacultyId) : ""} onValueChange={handleSelectFaculty}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select faculty" /></SelectTrigger>
+                      <SelectContent>
+                        {faculties.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.facultyName}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Department</Label>
+                    <Select value={selectedDepartmentId ? String(selectedDepartmentId) : ""} onValueChange={handleSelectDepartment} disabled={!selectedFacultyId}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select department" /></SelectTrigger>
+                      <SelectContent>
+                        {departments.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.departmentName}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Class</Label>
+                    <Select value={selectedClassId ? String(selectedClassId) : ""} onValueChange={handleSelectClass} disabled={!selectedDepartmentId}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select class" /></SelectTrigger>
+                      <SelectContent>
+                        {classes.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.className}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Section</Label>
+                    <Select value={selectedSectionId ? String(selectedSectionId) : ""} onValueChange={handleSelectSection} disabled={!selectedClassId}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+                      <SelectContent>
+                        {sections.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.sectionName}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button type="submit" disabled={feeRulesLoading} className="cursor-pointer">{feeRuleEditMode ? "Update" : "Create"}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Fee Rule Delete Confirmation */}
+        <AlertDialog open={feeRuleDeleteDialogOpen} onOpenChange={setFeeRuleDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Fee Rule</AlertDialogTitle>
+              <AlertDialogDescription>
+                {feeRuleToDelete ? `Do you want to delete '${feeRuleToDelete.name}'? This action cannot be undone.` : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setFeeRuleDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleFeeRuleDelete} className="bg-red-600 text-white hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }

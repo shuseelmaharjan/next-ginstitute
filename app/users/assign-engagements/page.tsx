@@ -438,7 +438,7 @@ export default function ConfigureFeeStructurePage() {
             {/* Estimated Fee Row */}
             <Card className="flex-1 mb-4 md:mb-0 border-1 shadow-none mt-6">
                 <CardHeader>
-                    <CardTitle>Assign Fee</CardTitle>
+                    <CardTitle>Tution Fee</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
