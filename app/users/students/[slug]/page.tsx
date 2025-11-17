@@ -60,7 +60,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function DocumentCard({ doc }: { doc: any }) {
     const [imageError, setImageError] = useState(false);
-    const imageUrl = doc.document ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${doc.document}` : null;
+    const imageUrl = doc.document ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${doc.document}` : '/default/image.jpg';
     
     return (
         <div className="flex flex-col items-center space-y-2">

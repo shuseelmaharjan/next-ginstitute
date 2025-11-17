@@ -503,12 +503,11 @@ const BannerPage = () => {
       ) : (banners.map((banner) => (
             <Card key={banner.id} className="overflow-hidden py-0">
               <div className="relative h-48">
-                <Image
-                  src={banner.banner}
+                <img
+                  src={banner.banner || '/default/image.jpg'}
                   alt="Banner"
                   className="w-full h-full object-cover"
-                  layout="fill"
-                  priority
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default/image.jpg'; }}
                 />
                 <div className="absolute top-2 right-2">
                     <div className="flex space-x-1">
@@ -544,31 +543,41 @@ const BannerPage = () => {
       )}
         </div>
 
-      {/* View Modal */}
-      <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Banner Details</DialogTitle>
-          </DialogHeader>
-          {selectedBanner && (
-            <div className="space-y-4">
-              <Image
-                src={selectedBanner.banner}
+      {/* View Modal (Tailwind-only) */}
+      {viewModalOpen && selectedBanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setViewModalOpen(false)} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative bg-white rounded-lg shadow-lg max-w-3xl w-full mx-4 overflow-auto max-h-[90vh] z-10"
+          >
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Banner Details</h3>
+              <button
+                onClick={() => setViewModalOpen(false)}
+                className="text-sm text-muted-foreground px-2 py-1 hover:underline"
+                aria-label="Close dialog"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <img
+                src={selectedBanner.banner || '/default/image.jpg'}
                 alt="Banner"
                 className="w-full h-64 object-cover rounded-lg"
-                width={800}
-                height={320}
-                priority
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default/image.jpg'; }}
               />
               <div className="grid grid-cols-1 gap-4">
                 {selectedBanner.title && selectedBanner.titleText && (
-                  <div className="col-span-2">
+                  <div>
                     <Label>Title Text</Label>
                     <div className="text-sm">{selectedBanner.titleText}</div>
                   </div>
                 )}
                 {selectedBanner.subtitle && selectedBanner.subtitleText && (
-                  <div className="col-span-2">
+                  <div>
                     <Label>Subtitle Text</Label>
                     <div className="text-sm">{selectedBanner.subtitleText}</div>
                   </div>
@@ -599,9 +608,9 @@ const BannerPage = () => {
                 </div>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>

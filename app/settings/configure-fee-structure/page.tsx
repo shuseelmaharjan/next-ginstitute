@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 
 interface FeeStructure {
   id: number;
@@ -26,6 +27,52 @@ interface FeeStructure {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+interface FeeRule {
+  id: number;
+  name: string;
+  category: string;
+  defaultAmount: string | number;
+  currency: string;
+  recurrenceType: string; // ONCE | RECURRING (API may return lowercase)
+  intervalMonths: number | null;
+  section_id: number | null;
+  isActive?: boolean;
+  section?: {
+    id: number;
+    sectionName: string;
+    class?: {
+      id: number;
+      className: string;
+      department?: {
+        id: number;
+        departmentName: string;
+        faculty?: {
+          id: number;
+          facultyName: string;
+        };
+      };
+      course?: { id: number; title: string };
+    };
+  };
+}
+
+interface Faculty { id: number; facultyName: string; }
+interface Department { id: number; departmentName: string; facultyId?: number; }
+interface ClassItem { id: number; className: string; }
+interface SectionItem { id: number; sectionName: string; class_id?: number; }
+
+interface FeeRuleForm {
+  name: string;
+  category: typeof categories[number];
+  defaultAmount: string;
+  currency: string;
+  recurrenceType: "ONCE" | "RECURRING";
+  intervalMonths: string; // empty string or number string
+  section_id: number | null;
+  isActive: boolean;
+  selectionMode: "individual" | "group";
 }
 
 export default function ConfigureFeeStructurePage() {
@@ -45,7 +92,7 @@ export default function ConfigureFeeStructurePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feeToDelete, setFeeToDelete] = useState<FeeStructure | null>(null);
 
-  // Fetch all fee structures
+  // Fetch all fee structures (restored)
   useEffect(() => {
     setLoading(true);
     apiHandler({ url: "/api/v1/fee-structures", method: "GET" })
@@ -60,9 +107,10 @@ export default function ConfigureFeeStructurePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Open modal for create
+  // Open modal for create (restored)
   const openCreateModal = () => {
     setEditMode(false);
+    setSelectedFee(null);
     setForm({
       feeType: "",
       amount: "",
@@ -74,7 +122,7 @@ export default function ConfigureFeeStructurePage() {
     setModalOpen(true);
   };
 
-  // Open modal for update
+  // Open modal for update (restored)
   const openEditModal = (fee: FeeStructure) => {
     setEditMode(true);
     setSelectedFee(fee);
@@ -89,7 +137,7 @@ export default function ConfigureFeeStructurePage() {
     setModalOpen(true);
   };
 
-  // Handle form change
+  // Handle form change (restored)
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({
@@ -98,12 +146,12 @@ export default function ConfigureFeeStructurePage() {
     }));
   };
 
-  // Handle checkbox change
+  // Handle checkbox change (restored)
   const handleCheckboxChange = (name: keyof typeof form, checked: boolean) => {
     setForm((prev) => ({ ...prev, [name]: checked }));
   };
 
-  // Create or update fee structure
+  // Create or update fee structure (restored)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const errors: string[] = [];
@@ -161,7 +209,7 @@ export default function ConfigureFeeStructurePage() {
         });
         if (res.success && res.data) {
           toast({ title: "Success", description: "Fee structure created successfully!", variant: "success" });
-          setFeeStructures((prev) => [...prev, res.data]);
+            setFeeStructures((prev) => [...prev, res.data]);
           setModalOpen(false);
         } else {
           toast({ title: "Error", description: res.message || "Failed to create fee structure.", variant: "destructive" });
@@ -174,7 +222,7 @@ export default function ConfigureFeeStructurePage() {
     }
   };
 
-  // Delete fee structure
+  // Delete fee structure (restored)
   const handleDelete = async () => {
     if (!feeToDelete) return;
     setLoading(true);
@@ -195,6 +243,313 @@ export default function ConfigureFeeStructurePage() {
     } finally {
       setLoading(false);
       setFeeToDelete(null);
+    }
+  };
+
+  // ------------------ Fee Rules State (NEW) ------------------
+  const [feeRules, setFeeRules] = useState<FeeRule[]>([]);
+  const [feeRulesLoading, setFeeRulesLoading] = useState(false);
+  const [feeRuleModalOpen, setFeeRuleModalOpen] = useState(false);
+  const [feeRuleEditMode, setFeeRuleEditMode] = useState(false);
+  const [selectedFeeRule, setSelectedFeeRule] = useState<FeeRule | null>(null);
+  const [feeRuleDeleteDialogOpen, setFeeRuleDeleteDialogOpen] = useState(false);
+  const [feeRuleToDelete, setFeeRuleToDelete] = useState<FeeRule | null>(null);
+
+  const categories = ["tuition", "lab", "sports", "exam", "bus", "eca", "other"] as const;
+  const currencies = ["USD", "NPR", "INR", "EUR", "GBP", "AUD", "CAD", "JPY", "CNY"] as const;
+
+  const [feeRuleForm, setFeeRuleForm] = useState<FeeRuleForm>({
+    name: "",
+    category: "tuition",
+    defaultAmount: "",
+    currency: "NPR",
+    recurrenceType: "ONCE",
+    intervalMonths: "",
+    section_id: null,
+    isActive: true,
+    selectionMode: "individual",
+  });
+
+  // Hierarchy selections
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [sections, setSections] = useState<SectionItem[]>([]);
+
+  const [selectedFacultyId, setSelectedFacultyId] = useState<number | null>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
+
+  // ------------------ Fetch Fee Rules & Faculties ------------------
+  useEffect(() => {
+    // fetch fee rules
+    setFeeRulesLoading(true);
+    Promise.all([
+      apiHandler({ url: "/api/v1/fee-rules", method: "GET" }),
+      apiHandler({ url: "/api/v1/faculty", method: "GET" }),
+    ])
+      .then(([feeRulesRes, facultiesRes]) => {
+        if (feeRulesRes.success && Array.isArray(feeRulesRes.data)) {
+          setFeeRules(feeRulesRes.data);
+        } else {
+          toast({ title: "Error", description: feeRulesRes.message || "Failed to fetch fee rules.", variant: "destructive" });
+        }
+        if (facultiesRes.success && Array.isArray(facultiesRes.data)) {
+          setFaculties(facultiesRes.data);
+        }
+      })
+      .catch(() => toast({ title: "Error", description: "Failed to load fee rules or faculties.", variant: "destructive" }))
+      .finally(() => setFeeRulesLoading(false));
+  }, []);
+
+  // ------------------ Hierarchy Fetch Helpers ------------------
+  const fetchDepartmentsByFaculty = async (facultyId: number) => {
+    try {
+      const res = await apiHandler({ url: `/api/v1/departmentsfaculty/${facultyId}`, method: "GET" });
+      if (res.success && Array.isArray(res.data)) {
+        setDepartments(res.data);
+      } else {
+        setDepartments([]);
+      }
+    } catch {
+      setDepartments([]);
+    }
+  };
+
+  const fetchClassesByDepartment = async (departmentId: number) => {
+    try {
+      const res = await apiHandler({ url: `/api/v1/classes/department/${departmentId}`, method: "GET" });
+      if (res.success && Array.isArray(res.data)) {
+        setClasses(res.data);
+      } else {
+        setClasses([]);
+      }
+    } catch {
+      setClasses([]);
+    }
+  };
+
+  const fetchSectionsByClass = async (classId: number) => {
+    try {
+      const res = await apiHandler({ url: `/api/v1/sections/class/${classId}`, method: "GET" });
+      if (res.success && Array.isArray(res.data)) {
+        setSections(res.data);
+      } else {
+        setSections([]);
+      }
+    } catch {
+      setSections([]);
+    }
+  };
+
+  // ------------------ Fee Rule Modal Handlers ------------------
+  const openFeeRuleCreateModal = () => {
+    setFeeRuleEditMode(false);
+    setSelectedFeeRule(null);
+    setFeeRuleForm({
+      name: "",
+      category: "tuition",
+      defaultAmount: "",
+      currency: "NPR",
+      recurrenceType: "ONCE",
+      intervalMonths: "",
+      section_id: null,
+      isActive: true,
+      selectionMode: "individual",
+    });
+    // reset hierarchy
+    setSelectedFacultyId(null);
+    setSelectedDepartmentId(null);
+    setSelectedClassId(null);
+    setSelectedSectionId(null);
+    setDepartments([]);
+    setClasses([]);
+    setSections([]);
+    setFeeRuleModalOpen(true);
+  };
+
+  const openFeeRuleEditModal = async (rule: FeeRule) => {
+    setFeeRuleEditMode(true);
+    setSelectedFeeRule(rule);
+    setFeeRuleForm({
+      name: rule.name,
+      category: rule.category as FeeRuleForm["category"],
+      defaultAmount: String(rule.defaultAmount),
+      currency: rule.currency || "NPR",
+      recurrenceType: rule.recurrenceType.toUpperCase() === "RECURRING" ? "RECURRING" : "ONCE",
+      intervalMonths: rule.intervalMonths ? String(rule.intervalMonths) : "",
+      section_id: rule.section_id,
+      isActive: rule.isActive !== false,
+      selectionMode: rule.section_id ? "group" : "individual",
+    });
+    // Populate hierarchy chain if section is present
+    if (rule.section && rule.section.class) {
+      const cls = rule.section.class;
+      const dept = cls.department;
+      const fac = dept?.faculty;
+      if (fac?.id) {
+        setSelectedFacultyId(fac.id);
+        await fetchDepartmentsByFaculty(fac.id);
+      }
+      if (dept?.id) {
+        setSelectedDepartmentId(dept.id);
+        await fetchClassesByDepartment(dept.id);
+      }
+      if (cls.id) {
+        setSelectedClassId(cls.id);
+        await fetchSectionsByClass(cls.id);
+      }
+      if (rule.section.id) {
+        setSelectedSectionId(rule.section.id);
+      }
+    } else {
+      setSelectedFacultyId(null);
+      setSelectedDepartmentId(null);
+      setSelectedClassId(null);
+      setSelectedSectionId(null);
+      setDepartments([]);
+      setClasses([]);
+      setSections([]);
+    }
+    setFeeRuleModalOpen(true);
+  };
+
+  const handleFeeRuleFormChange = <K extends keyof FeeRuleForm>(field: K, value: FeeRuleForm[K]) => {
+    setFeeRuleForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSelectionModeChange = (value: "individual" | "group") => {
+    setFeeRuleForm((prev) => ({ ...prev, selectionMode: value, section_id: value === "individual" ? null : prev.section_id }));
+    if (value === "individual") {
+      setSelectedFacultyId(null);
+      setSelectedDepartmentId(null);
+      setSelectedClassId(null);
+      setSelectedSectionId(null);
+      setDepartments([]); setClasses([]); setSections([]);
+    }
+  };
+
+  const handleSelectFaculty = async (value: string) => {
+    const id = Number(value);
+    setSelectedFacultyId(id);
+    setSelectedDepartmentId(null);
+    setSelectedClassId(null);
+    setSelectedSectionId(null);
+    setDepartments([]); setClasses([]); setSections([]);
+    await fetchDepartmentsByFaculty(id);
+    handleFeeRuleFormChange("section_id", null);
+  };
+
+  const handleSelectDepartment = async (value: string) => {
+    const id = Number(value);
+    setSelectedDepartmentId(id);
+    setSelectedClassId(null);
+    setSelectedSectionId(null);
+    setClasses([]); setSections([]);
+    await fetchClassesByDepartment(id);
+    handleFeeRuleFormChange("section_id", null);
+  };
+
+  const handleSelectClass = async (value: string) => {
+    const id = Number(value);
+    setSelectedClassId(id);
+    setSelectedSectionId(null);
+    setSections([]);
+    await fetchSectionsByClass(id);
+    handleFeeRuleFormChange("section_id", null);
+  };
+
+  const handleSelectSection = (value: string) => {
+    const id = Number(value);
+    setSelectedSectionId(id);
+    handleFeeRuleFormChange("section_id", id);
+  };
+
+  // ------------------ Fee Rule Create/Update ------------------
+  const handleFeeRuleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const errors: string[] = [];
+    const name = feeRuleForm.name.trim();
+    if (!name) errors.push("Name is required.");
+    if (!categories.includes(feeRuleForm.category as any)) errors.push("Invalid category.");
+    if (feeRuleForm.currency !== "NPR") errors.push("Only NPR currency is allowed currently.");
+    const amountNum = Number(feeRuleForm.defaultAmount);
+    if (isNaN(amountNum) || amountNum <= 0 || !Number.isInteger(amountNum)) errors.push("Default amount must be a positive integer.");
+
+    // Determine recurrence based on interval selection
+    const isOnce = feeRuleForm.recurrenceType === "ONCE" || feeRuleForm.intervalMonths === "";
+    const intervalStr = feeRuleForm.intervalMonths;
+    if (isOnce) {
+      // ONCE
+      // intervalMonths must be empty
+    } else {
+      const intervalInt = Number(intervalStr);
+      if (!intervalStr || isNaN(intervalInt) || intervalInt <= 0 || !Number.isInteger(intervalInt)) {
+        errors.push("Select a valid interval for recurring fees.");
+      }
+    }
+
+    if (feeRuleForm.selectionMode === "group") {
+      if (!selectedSectionId) errors.push("Please select Faculty, Department, Class and Section for group mode.");
+    }
+
+    if (errors.length) {
+      toast({ title: "Validation Error", description: errors.join("\n"), variant: "destructive" });
+      return;
+    }
+
+    setFeeRulesLoading(true);
+    try {
+      const payload = {
+        name: feeRuleForm.name,
+        category: feeRuleForm.category,
+        defaultAmount: Number(feeRuleForm.defaultAmount),
+        currency: "NPR",
+        recurrenceType: isOnce ? "ONCE" : "RECURRING",
+        intervalMonths: isOnce ? null : Number(feeRuleForm.intervalMonths),
+        section_id: feeRuleForm.selectionMode === "group" ? selectedSectionId : null,
+      };
+      const method = feeRuleEditMode && selectedFeeRule ? "PUT" : "POST";
+      const url = feeRuleEditMode && selectedFeeRule ? `/api/v1/fee-rules/${selectedFeeRule.id}` : "/api/v1/fee-rules";
+      const res = await apiHandler({ url, method, data: payload });
+      if (res.success && res.data) {
+        if (feeRuleEditMode && selectedFeeRule) {
+          toast({ title: "Success", description: "Fee rule updated successfully.", variant: "success" });
+          setFeeRules((prev) => prev.map((r) => r.id === selectedFeeRule.id ? res.data : r));
+        } else {
+          toast({ title: "Success", description: "Fee rule created successfully.", variant: "success" });
+          setFeeRules((prev) => [...prev, res.data]);
+        }
+        setFeeRuleModalOpen(false);
+      } else {
+        toast({ title: "Error", description: res.message || "Failed to save fee rule.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to save fee rule.", variant: "destructive" });
+    } finally {
+      setFeeRulesLoading(false);
+    }
+  };
+
+  // ------------------ Fee Rule Delete ------------------
+  const handleFeeRuleDelete = async () => {
+    if (!feeRuleToDelete) return;
+    setFeeRulesLoading(true);
+    try {
+      const res = await apiHandler({ url: `/api/v1/fee-rules/${feeRuleToDelete.id}`, method: "DELETE" });
+      if (res.success) {
+        toast({ title: "Success", description: "Fee rule deleted successfully.", variant: "success" });
+        setFeeRules((prev) => prev.filter((r) => r.id !== feeRuleToDelete.id));
+        setFeeRuleDeleteDialogOpen(false);
+      } else {
+        toast({ title: "Error", description: res.message || "Failed to delete fee rule.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to delete fee rule.", variant: "destructive" });
+    } finally {
+      setFeeRulesLoading(false);
+      setFeeRuleToDelete(null);
     }
   };
 
@@ -350,6 +705,203 @@ export default function ConfigureFeeStructurePage() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 text-white hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Fee Rules Management Section */}
+      <Separator />
+      <div className="flex justify-between items-center mt-10">
+        <div>
+          <h2 className="text-2xl font-bold">Manage Fee Rules</h2>
+          <p className="text-muted-foreground">Create and manage fee rules with currency and recurrence</p>
+        </div>
+        <Button onClick={openFeeRuleCreateModal} className="cursor-pointer" variant="secondary">Create Fee Rule</Button>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-black hover:bg-black/90">
+            <TableHead className="font-bold text-white">Name</TableHead>
+            <TableHead className="font-bold text-white">Category</TableHead>
+            <TableHead className="font-bold text-white">Amount</TableHead>
+            <TableHead className="font-bold text-white">Currency</TableHead>
+            <TableHead className="font-bold text-white">Recurrence</TableHead>
+            <TableHead className="font-bold text-white">Interval (Months)</TableHead>
+            <TableHead className="font-bold text-white">Section</TableHead>
+            <TableHead className="font-bold text-white">Class</TableHead>
+            <TableHead className="font-bold text-white">Department</TableHead>
+            <TableHead className="font-bold text-white">Faculty</TableHead>
+            <TableHead className="font-bold text-white">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {feeRules.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={11} className="text-center text-muted-foreground">No fee rules found</TableCell>
+            </TableRow>
+          ) : (
+            feeRules.map((rule) => {
+              const section = rule.section;
+              const cls = section?.class;
+              const dept = cls?.department;
+              const fac = dept?.faculty;
+              return (
+                <TableRow key={rule.id}>
+                  <TableCell>{rule.name}</TableCell>
+                  <TableCell className="capitalize">{rule.category}</TableCell>
+                  <TableCell>{rule.defaultAmount}</TableCell>
+                  <TableCell>{rule.currency}</TableCell>
+                  <TableCell>{rule.recurrenceType?.toUpperCase()}</TableCell>
+                  <TableCell>{rule.recurrenceType?.toUpperCase() === "RECURRING" ? rule.intervalMonths : "-"}</TableCell>
+                  <TableCell>{rule.section_id ? section?.sectionName : <Badge variant="secondary">Individual</Badge>}</TableCell>
+                  <TableCell>{cls?.className || (rule.section_id ? "-" : "-")}</TableCell>
+                  <TableCell>{dept?.departmentName || (rule.section_id ? "-" : "-")}</TableCell>
+                  <TableCell>{fac?.facultyName || (rule.section_id ? "-" : "-")}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openFeeRuleEditModal(rule)} className="cursor-pointer">Edit</Button>
+                      <Button size="sm" variant="destructive" onClick={() => { setFeeRuleToDelete(rule); setFeeRuleDeleteDialogOpen(true); }} className="cursor-pointer">Delete</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+
+      {/* Fee Rule Create/Update Modal */}
+      <Dialog open={feeRuleModalOpen} onOpenChange={setFeeRuleModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{feeRuleEditMode ? "Update Fee Rule" : "Create Fee Rule"}</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleFeeRuleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input value={feeRuleForm.name} onChange={(e) => handleFeeRuleFormChange("name", e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={feeRuleForm.category} onValueChange={(v) => handleFeeRuleFormChange("category", v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Default Amount</Label>
+                <Input type="number" step="1" min="1" value={feeRuleForm.defaultAmount} onChange={(e) => handleFeeRuleFormChange("defaultAmount", e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Select value={feeRuleForm.currency} onValueChange={(v) => handleFeeRuleFormChange("currency", v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select currency" /></SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((c) => (
+                      <SelectItem key={c} value={c} disabled={c !== "NPR"}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Interval</Label>
+                <Select
+                  value={feeRuleForm.recurrenceType === "ONCE" ? "ONCE" : (feeRuleForm.intervalMonths ? String(feeRuleForm.intervalMonths) : "")}
+                  onValueChange={(v) => {
+                    if (v === "ONCE") {
+                      setFeeRuleForm((prev) => ({ ...prev, recurrenceType: "ONCE", intervalMonths: "" }));
+                    } else {
+                      setFeeRuleForm((prev) => ({ ...prev, recurrenceType: "RECURRING", intervalMonths: v }));
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select interval" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ONCE">Once</SelectItem>
+                    <SelectItem value="1">Monthly</SelectItem>
+                    <SelectItem value="2">Bimonthly</SelectItem>
+                    <SelectItem value="3">Quarterly</SelectItem>
+                    <SelectItem value="4">Four-monthly</SelectItem>
+                    <SelectItem value="6">Semiannually</SelectItem>
+                    <SelectItem value="12">Annually</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Applies To</Label>
+                <Select value={feeRuleForm.selectionMode} onValueChange={(v) => handleSelectionModeChange(v as "individual" | "group")}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select mode" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="group">Group</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+            {feeRuleForm.selectionMode === "group" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Faculty</Label>
+                  <Select value={selectedFacultyId ? String(selectedFacultyId) : ""} onValueChange={handleSelectFaculty}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select faculty" /></SelectTrigger>
+                    <SelectContent>
+                      {faculties.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.facultyName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Select value={selectedDepartmentId ? String(selectedDepartmentId) : ""} onValueChange={handleSelectDepartment} disabled={!selectedFacultyId}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select department" /></SelectTrigger>
+                    <SelectContent>
+                      {departments.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.departmentName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Class</Label>
+                  <Select value={selectedClassId ? String(selectedClassId) : ""} onValueChange={handleSelectClass} disabled={!selectedDepartmentId}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select class" /></SelectTrigger>
+                    <SelectContent>
+                      {classes.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.className}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Section</Label>
+                  <Select value={selectedSectionId ? String(selectedSectionId) : ""} onValueChange={handleSelectSection} disabled={!selectedClassId}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+                    <SelectContent>
+                      {sections.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.sectionName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="submit" disabled={feeRulesLoading} className="cursor-pointer">{feeRuleEditMode ? "Update" : "Create"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fee Rule Delete Confirmation */}
+      <AlertDialog open={feeRuleDeleteDialogOpen} onOpenChange={setFeeRuleDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Fee Rule</AlertDialogTitle>
+            <AlertDialogDescription>
+              {feeRuleToDelete ? `Do you want to delete '${feeRuleToDelete.name}'? This action cannot be undone.` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setFeeRuleDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFeeRuleDelete} className="bg-red-600 text-white hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

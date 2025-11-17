@@ -119,7 +119,7 @@ export default function StudentPage() {
                                         <TableCell>{(page - 1) * PAGE_SIZE + idx + 1}</TableCell>
                                         <TableCell>
                                             <Avatar className="h-8 w-8">
-                                                <AvatarImage src={student.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${student.profile}` : undefined} alt={student.name} />
+                                                <AvatarImage src={student.profile ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${student.profile}` : '/default/user.jpg'} alt={student.name} />
                                                 <AvatarFallback>{student.name?.[0] || "?"}</AvatarFallback>
                                             </Avatar>
                                         </TableCell>

@@ -460,12 +460,11 @@ const TestimonialsPage = () => {
             <Card key={testimonial.id} className="overflow-hidden p-4 hover:shadow-lg transition-shadow">
               <div className="flex flex-col items-center space-y-4">
                 <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-primary/20">
-                  <Image
-                    src={testimonial.image}
+                  <img
+                    src={testimonial.image || '/default/user.jpg'}
                     alt={testimonial.name}
-                    className="object-cover"
-                    fill
-                    priority
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default/user.jpg'; }}
                   />
                 </div>
                 <div className="text-center space-y-1">
@@ -507,22 +506,33 @@ const TestimonialsPage = () => {
         )}
       </div>
 
-      {/* View Modal */}
-      <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Testimonial Details</DialogTitle>
-          </DialogHeader>
-          {selectedTestimonial && (
-            <div className="space-y-6">
+      {/* View Modal (Tailwind-only) */}
+      {viewModalOpen && selectedTestimonial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setViewModalOpen(false)} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative bg-white rounded-lg shadow-lg max-w-3xl w-full mx-4 overflow-auto max-h-[90vh] z-10"
+          >
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Testimonial Details</h3>
+              <button
+                onClick={() => setViewModalOpen(false)}
+                className="text-sm text-muted-foreground px-2 py-1 hover:underline"
+                aria-label="Close dialog"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 space-y-6">
               <div className="flex items-start space-x-6">
-                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-primary/20 flex-shrink-0">
-                  <Image
-                    src={selectedTestimonial.image}
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/20 flex-shrink-0">
+                  <img
+                    src={selectedTestimonial.image || '/default/user.jpg'}
                     alt={selectedTestimonial.name}
-                    className="object-cover"
-                    fill
-                    priority
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default/user.jpg'; }}
                   />
                 </div>
                 <div className="flex-1 space-y-4">
@@ -540,7 +550,7 @@ const TestimonialsPage = () => {
               <div>
                 <Label>Testimonial Message</Label>
                 <div className="text-sm mt-2 p-4 bg-muted rounded-lg italic">
-                  &ldquo;{selectedTestimonial.message}&rdquo;
+                  "{selectedTestimonial.message}"
                 </div>
               </div>
 
@@ -569,9 +579,9 @@ const TestimonialsPage = () => {
                 )}
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
